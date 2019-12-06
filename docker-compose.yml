@@ -1,0 +1,13 @@
+---
+version: "2"
+
+services:
+  postgresql:
+    image: postgresql:latest
+    ports:
+      - "5432:5432"
+    environment:
+      PGDATA: /data
+      POSTGRES_PASSWORD: "1"
+    volumes:
+      - .data:/data
