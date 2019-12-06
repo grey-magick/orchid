@@ -3,7 +3,7 @@ version: "2"
 
 services:
   postgresql:
-    image: postgresql:latest
+    image: postgres:latest
     ports:
       - "5432:5432"
     environment:
