@@ -23,12 +23,15 @@
 
 # `orchid`
 
-`orchid` is an experiment on building a Kubernetes compatible API server, offering
-CustomResourceDefinition as basic primitive. The database of choice to store data associated with
-those definitions is Postgres, which will be responsible not only for managing CRUD operations
-related to those resources but, more importantly, a transactional engine that can be used to leverage
-a transactional API yet to be defined.
+`orchid` is an experiment on building a **Kubernetes style object store**, offering an equivalent 
+of Kubernetes *CustomResourceDefinition* as basic primitive and using Postgres to store user defined 
+resources. Postgres will not only be responsible for managing CRUD operations related to those 
+resources but, more importantly, a transactional engine that can be used to leverage a transactional 
+API yet to be defined.
 
-As a design goal, this experiment implements only the basics of an API server to prove the concept.
-Eventual implementation might require a SIG to be formed to coordinate shared components used by this
-project and Kubernetes, in the case `orchid` catches the attention of the community.
+As a design goal, `orchid` should support user interactions through `kubectl`; this is important to
+leverage already existing knowledge and tooling.
+
+It is expected that any serious implementation might require a work group or SIG to be formed in 
+order to coordinate the development of shared components used by this project and Kubernetes, in the 
+case `orchid` catches the attention of the community.
