@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/isutton/orchid/pkg/server"
+	"github.com/isutton/orchid/pkg/orchid/server"
 
 	"k8s.io/klog/klogr"
 )
