@@ -3,6 +3,7 @@ package orm
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
@@ -36,6 +37,7 @@ func TestSchema_New(t *testing.T) {
 
 	t.Run("Generate", func(t *testing.T) {
 		err := schema.Generate(properties)
-		t.Logf("err='%#v'", err)
+		assert.NoError(t, err)
+		assert.Equal(t, 7, len(schema.Tables))
 	})
 }
