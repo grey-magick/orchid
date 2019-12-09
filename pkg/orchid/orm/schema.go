@@ -6,11 +6,14 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
+// Schema around a given CR (Custom Resource), as in the group of tables required to store CR's
+// payload. It also handles JSON-Schema properties to generate additional tables and columns.
 type Schema struct {
 	Name   string
 	Tables map[string]*Table
 }
 
+// tableFactory return existing or create new table instance.
 func (s *Schema) tableFactory(tableName string) *Table {
 	_, exists := s.Tables[tableName]
 	if !exists {
@@ -19,6 +22,8 @@ func (s *Schema) tableFactory(tableName string) *Table {
 	return s.Tables[tableName]
 }
 
+// addCRTable creates the primary table to store CR records. This table can be reused to include
+// more columns later on.
 func (s *Schema) addCRTable() {
 	table := s.tableFactory(s.Name)
 
@@ -26,6 +31,7 @@ func (s *Schema) addCRTable() {
 	table.AddColumnRaw("api_version", PgTypeText)
 }
 
+// addObjectMetaTable create the table refering to ObjectMeta CR entry.
 func (s *Schema) addObjectMetaTable() {
 	table := s.tableFactory(fmt.Sprintf("%s_object_meta", s.Name))
 
@@ -43,6 +49,7 @@ func (s *Schema) addObjectMetaTable() {
 	table.AddColumnRaw("cluster_name", PgTypeText)
 }
 
+// addObjectMetaLabelsTable part of ObjectMeta, stores labels.
 func (s *Schema) addObjectMetaLabelsTable() {
 	table := s.tableFactory(fmt.Sprintf("%s_object_meta_labels", s.Name))
 
@@ -50,6 +57,7 @@ func (s *Schema) addObjectMetaLabelsTable() {
 	table.AddColumnRaw("value", PgTypeText)
 }
 
+// addObjectMetaAnnotationsTable part of ObjectMeta, stores annotations.
 func (s *Schema) addObjectMetaAnnotationsTable() {
 	table := s.tableFactory(fmt.Sprintf("%s_object_meta_labels", s.Name))
 
@@ -57,6 +65,7 @@ func (s *Schema) addObjectMetaAnnotationsTable() {
 	table.AddColumnRaw("value", PgTypeText)
 }
 
+// addObjectMetaReferencesTable part of ObjectMeta, stores references.
 func (s *Schema) addObjectMetaReferencesTable() {
 	table := s.tableFactory(fmt.Sprintf("%s_object_meta_owner_references", s.Name))
 
@@ -67,6 +76,7 @@ func (s *Schema) addObjectMetaReferencesTable() {
 	table.AddColumnRaw("block_owner_deletion", PgTypeBoolean)
 }
 
+// addObjectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
 func (s *Schema) addObjectMetaManagedFieldsTable() {
 	table := s.tableFactory(fmt.Sprintf("%s_object_meta_managed_fields", s.Name))
 
@@ -78,6 +88,8 @@ func (s *Schema) addObjectMetaManagedFieldsTable() {
 	table.AddColumnRaw("fields_v1", PgTypeText)
 }
 
+// Generate trigger generation of metadata and CR tables, plus parsing of JSON-Schema properties to
+// create extra columns and tables. Can return error on JSON-Schema parsing.
 func (s *Schema) Generate(properties map[string]extv1beta1.JSONSchemaProps) error {
 	s.addCRTable()
 	s.addObjectMetaTable()
@@ -89,6 +101,8 @@ func (s *Schema) Generate(properties map[string]extv1beta1.JSONSchemaProps) erro
 	return s.jsonSchemaParser(s.Name, properties)
 }
 
+// jsonSchemaParser parse map of properties into more columns or tables, depending on the type of
+// entry. It can return errors on not being able to deal with a given JSON-Schema type.
 func (s *Schema) jsonSchemaParser(
 	tableName string,
 	properties map[string]extv1beta1.JSONSchemaProps,
@@ -119,6 +133,7 @@ func (s *Schema) jsonSchemaParser(
 	return nil
 }
 
+// NewSchema instantiate new Schema.
 func NewSchema(name string) *Schema {
 	return &Schema{Name: name, Tables: map[string]*Table{}}
 }
