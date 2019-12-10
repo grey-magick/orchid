@@ -14,10 +14,10 @@ func TestSQL_New(t *testing.T) {
 	err := schema.Generate(properties)
 	assert.NoError(t, err)
 
-	sql := NewSQL(schema)
+	sqlLib := NewSQL(schema)
 
 	t.Run("CreateTables", func(t *testing.T) {
-		tables := sql.CreateTables()
+		tables := sqlLib.CreateTables()
 		assert.Len(t, tables, 8)
 
 		for _, statement := range tables {
