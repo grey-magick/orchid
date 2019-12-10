@@ -191,9 +191,11 @@ func (s *Schema) jsonSchemaParser(
 		switch jsonSchema.Type {
 		case "object":
 			childTableName := fmt.Sprintf("%s_%s", tableName, name)
+			columnName := fmt.Sprintf("%s_id", childTableName)
+			table.AddColumnRaw(columnName, PgTypeBigInt)
 			table.AddConstraintRaw(
 				PgConstraintFK,
-				fmt.Sprintf("(id) references %s", childTableName),
+				fmt.Sprintf("(%s) references %s (id)", columnName, childTableName),
 			)
 			if err := s.jsonSchemaParser(childTableName, jsonSchema.Properties); err != nil {
 				return err
