@@ -1,0 +1,15 @@
+apiVersion: v1
+clusters:
+- cluster:
+    insecure-skip-tls-verify: true
+    server: http://127.0.0.1:8080
+  name: orchid
+contexts:
+- context:
+    cluster: orchid
+    user: ""
+  name: orchid
+current-context: ""
+kind: Config
+preferences: {}
+users: []
