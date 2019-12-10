@@ -9,16 +9,35 @@ import (
 // Schema around a given CR (Custom Resource), as in the group of tables required to store CR's
 // payload. It also handles JSON-Schema properties to generate additional tables and columns.
 type Schema struct {
-	Name   string
-	Tables map[string]*Table
+	Name   string            // primary table and schema name
+	Tables map[string]*Table // schema tables
+}
+
+const (
+	// omSuffix ObjectMeta
+	omSuffix = "object_meta"
+	// omLabelsSuffix ObjectMeta.Labels
+	omLabelsSuffix = "object_meta_labels"
+	// omAnnotationsSuffix ObjectMeta.Annotations
+	omAnnotationsSuffix = "object_meta_annotations"
+	// omOwnerReferencesSuffix ObjectMeta.OwnerReferences
+	omOwnerReferencesSuffix = "object_meta_owner_references"
+	// omManagedFieldsSuffix ObjectMeta.ManagedFields
+	omManagedFieldsSuffix = "object_meta_managed_fields"
+)
+
+// tableName append suffix on schema name.
+func (s *Schema) tableName(suffix string) string {
+	return fmt.Sprintf("%s_%s", s.Name, suffix)
 }
 
 // tableFactory return existing or create new table instance.
 func (s *Schema) tableFactory(tableName string) *Table {
-	_, exists := s.Tables[tableName]
+	table, exists := s.Tables[tableName]
 	if !exists {
-		s.Tables[tableName] = NewTable(tableName)
+		table = NewTable(tableName)
 	}
+	s.Tables[tableName] = table
 	return s.Tables[tableName]
 }
 
@@ -26,14 +45,23 @@ func (s *Schema) tableFactory(tableName string) *Table {
 // more columns later on.
 func (s *Schema) addCRTable() {
 	table := s.tableFactory(s.Name)
+	table.AddSerialPK()
 
 	table.AddColumnRaw("kind", PgTypeText)
 	table.AddColumnRaw("api_version", PgTypeText)
+
+	table.AddColumnRaw("object_meta_id", PgTypeBigInt)
+	table.AddConstraintRaw(
+		PgConstraintFK,
+		fmt.Sprintf("(object_meta_id) references %s (id)", s.tableName(omSuffix)),
+	)
 }
 
-// addObjectMetaTable create the table refering to ObjectMeta CR entry.
+// addObjectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
+// described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (s *Schema) addObjectMetaTable() {
-	table := s.tableFactory(fmt.Sprintf("%s_object_meta", s.Name))
+	table := s.tableFactory(s.tableName(omSuffix))
+	table.AddSerialPK()
 
 	table.AddColumnRaw("name", PgTypeText)
 	table.AddColumnRaw("generate_name", PgTypeText)
@@ -45,29 +73,70 @@ func (s *Schema) addObjectMetaTable() {
 	table.AddColumnRaw("creation_timestamp", PgTypeText)
 	table.AddColumnRaw("deletion_timestamp", PgTypeText)
 	table.AddColumnRaw("deletion_grace_period_seconds", PgTypeBigInt)
+
+	table.AddColumnRaw("labels_id", PgTypeBigInt)
+	table.AddConstraintRaw(
+		PgConstraintFK,
+		fmt.Sprintf("(labels_id) references %s (id)", s.tableName(omLabelsSuffix)),
+	)
+
+	table.AddColumnRaw("annotations_id", PgTypeBigInt)
+	table.AddConstraintRaw(
+		PgConstraintFK,
+		fmt.Sprintf("(annotations_id) references %s (id)", s.tableName(omAnnotationsSuffix)),
+	)
+
+	table.AddColumnRaw("owner_references_id", PgTypeBigInt)
+	table.AddConstraintRaw(
+		PgConstraintFK,
+		fmt.Sprintf("(owner_references_id) references %s (id)",
+			s.tableName(omOwnerReferencesSuffix)),
+	)
+
 	table.AddColumnRaw("finalizers", PgTypeTextArray)
 	table.AddColumnRaw("cluster_name", PgTypeText)
+
+	table.AddColumnRaw("managed_fields_id", PgTypeBigInt)
+	table.AddConstraintRaw(
+		PgConstraintFK,
+		fmt.Sprintf("(owner_references_id) references %s (id)",
+			s.tableName(omManagedFieldsSuffix)),
+	)
 }
 
 // addObjectMetaLabelsTable part of ObjectMeta, stores labels.
 func (s *Schema) addObjectMetaLabelsTable() {
-	table := s.tableFactory(fmt.Sprintf("%s_object_meta_labels", s.Name))
+	table := s.tableFactory(s.tableName(omLabelsSuffix))
+	table.AddSerialPK()
+
+	table.AddColumnRaw("id", PgTypeBigInt)
+	table.AddConstraintRaw(PgConstraintPK, "(id)")
 
 	table.AddColumnRaw("name", PgTypeText)
+	table.AddConstraintRaw(PgConstraintUnique, "(name)")
+
 	table.AddColumnRaw("value", PgTypeText)
 }
 
 // addObjectMetaAnnotationsTable part of ObjectMeta, stores annotations.
 func (s *Schema) addObjectMetaAnnotationsTable() {
-	table := s.tableFactory(fmt.Sprintf("%s_object_meta_labels", s.Name))
+	table := s.tableFactory(s.tableName(omAnnotationsSuffix))
+
+	table.AddColumnRaw("id", PgTypeBigInt)
+	table.AddConstraintRaw(PgConstraintPK, "(id)")
 
 	table.AddColumnRaw("name", PgTypeText)
+	table.AddConstraintRaw(PgConstraintUnique, "(name)")
+
 	table.AddColumnRaw("value", PgTypeText)
 }
 
 // addObjectMetaReferencesTable part of ObjectMeta, stores references.
 func (s *Schema) addObjectMetaReferencesTable() {
-	table := s.tableFactory(fmt.Sprintf("%s_object_meta_owner_references", s.Name))
+	table := s.tableFactory(s.tableName(omOwnerReferencesSuffix))
+
+	table.AddColumnRaw("id", PgTypeBigInt)
+	table.AddConstraintRaw(PgConstraintPK, "(id)")
 
 	table.AddColumnRaw("api_version", PgTypeText)
 	table.AddColumnRaw("kind", PgTypeText)
@@ -78,7 +147,10 @@ func (s *Schema) addObjectMetaReferencesTable() {
 
 // addObjectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
 func (s *Schema) addObjectMetaManagedFieldsTable() {
-	table := s.tableFactory(fmt.Sprintf("%s_object_meta_managed_fields", s.Name))
+	table := s.tableFactory(s.tableName(omManagedFieldsSuffix))
+
+	table.AddColumnRaw("id", PgTypeBigInt)
+	table.AddConstraintRaw(PgConstraintPK, "(id)")
 
 	table.AddColumnRaw("manager", PgTypeText)
 	table.AddColumnRaw("operation", PgTypeText)
@@ -91,12 +163,12 @@ func (s *Schema) addObjectMetaManagedFieldsTable() {
 // Generate trigger generation of metadata and CR tables, plus parsing of JSON-Schema properties to
 // create extra columns and tables. Can return error on JSON-Schema parsing.
 func (s *Schema) Generate(properties map[string]extv1beta1.JSONSchemaProps) error {
-	s.addCRTable()
-	s.addObjectMetaTable()
-	s.addObjectMetaLabelsTable()
-	s.addObjectMetaAnnotationsTable()
 	s.addObjectMetaReferencesTable()
 	s.addObjectMetaManagedFieldsTable()
+	s.addObjectMetaLabelsTable()
+	s.addObjectMetaAnnotationsTable()
+	s.addObjectMetaTable()
+	s.addCRTable()
 
 	return s.jsonSchemaParser(s.Name, properties)
 }
@@ -109,23 +181,42 @@ func (s *Schema) jsonSchemaParser(
 ) error {
 	table := s.tableFactory(tableName)
 
+	// on creating new tables, making sure they have a primary-key
+	if s.Name != tableName {
+		table.AddSerialPK()
+	}
+
 	for name, jsonSchema := range properties {
 		switch jsonSchema.Type {
 		case "object":
-			tableName = fmt.Sprintf("%s_%s", tableName, name)
-			err := s.jsonSchemaParser(tableName, jsonSchema.Properties)
-			if err != nil {
+			childTableName := fmt.Sprintf("%s_%s", tableName, name)
+			table.AddConstraintRaw(
+				PgConstraintFK,
+				fmt.Sprintf("(id) references %s", childTableName),
+			)
+			if err := s.jsonSchemaParser(childTableName, jsonSchema.Properties); err != nil {
 				return err
 			}
 		case "array":
 			itemsSchema := jsonSchema.Items.Schema
-			table.AddArrayColumn(name, itemsSchema.Type, itemsSchema.Format, jsonSchema.MaxItems)
+			itemType := itemsSchema.Type
+			itemformat := itemsSchema.Format
+			max := jsonSchema.MaxItems
+			if err := table.AddArrayColumn(name, itemType, itemformat, max); err != nil {
+				return err
+			}
 		case "string":
-			table.AddColumn(name, jsonSchema.Format)
+			if err := table.AddColumn(name, jsonSchema.Type, jsonSchema.Format); err != nil {
+				return err
+			}
 		case "integer":
-			table.AddColumn(name, jsonSchema.Format)
+			if err := table.AddColumn(name, jsonSchema.Type, jsonSchema.Format); err != nil {
+				return err
+			}
 		case "long":
-			table.AddColumn(name, jsonSchema.Format)
+			if err := table.AddColumn(name, jsonSchema.Type, jsonSchema.Format); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown json-schema type '%s'", jsonSchema.Type)
 		}
