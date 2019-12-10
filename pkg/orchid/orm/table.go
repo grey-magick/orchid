@@ -40,7 +40,7 @@ func (t *Table) String() string {
 	for _, constraint := range t.Constraints {
 		constrains = append(constrains, constraint.String())
 	}
-	return fmt.Sprintf("create table %s (%s, %s)",
+	return fmt.Sprintf("create table if not exists %s (%s, %s)",
 		t.Name, strings.Join(columns, ", "), strings.Join(constrains, ", "))
 }
 
