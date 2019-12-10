@@ -9,8 +9,8 @@ import (
 // Schema around a given CR (Custom Resource), as in the group of tables required to store CR's
 // payload. It also handles JSON-Schema properties to generate additional tables and columns.
 type Schema struct {
-	Name   string            // primary table and schema name
-	Tables map[string]*Table // schema tables
+	Name   string   // primary table and schema name
+	Tables []*Table // schema tables
 }
 
 const (
@@ -31,14 +31,24 @@ func (s *Schema) tableName(suffix string) string {
 	return fmt.Sprintf("%s_%s", s.Name, suffix)
 }
 
+// prepend new tables on the beggining of the slice. Reverse order helps to deal with the creation
+// of tables that are dependant on each other.
+func (s *Schema) prepend(table *Table) {
+	s.Tables = append(s.Tables, table)
+	copy(s.Tables[1:], s.Tables)
+	s.Tables[0] = table
+}
+
 // tableFactory return existing or create new table instance.
 func (s *Schema) tableFactory(tableName string) *Table {
-	table, exists := s.Tables[tableName]
-	if !exists {
-		table = NewTable(tableName)
+	for _, table := range s.Tables {
+		if tableName == table.Name {
+			return table
+		}
 	}
-	s.Tables[tableName] = table
-	return s.Tables[tableName]
+	table := NewTable(tableName)
+	s.prepend(table)
+	return table
 }
 
 // addCRTable creates the primary table to store CR records. This table can be reused to include
@@ -107,10 +117,7 @@ func (s *Schema) addObjectMetaTable() {
 // addObjectMetaLabelsTable part of ObjectMeta, stores labels.
 func (s *Schema) addObjectMetaLabelsTable() {
 	table := s.tableFactory(s.tableName(omLabelsSuffix))
-	table.AddSerialPK()
-
-	table.AddColumnRaw("id", PgTypeBigInt)
-	table.AddConstraintRaw(PgConstraintPK, "(id)")
+	table.AddBigIntPK()
 
 	table.AddColumnRaw("name", PgTypeText)
 	table.AddConstraintRaw(PgConstraintUnique, "(name)")
@@ -121,9 +128,7 @@ func (s *Schema) addObjectMetaLabelsTable() {
 // addObjectMetaAnnotationsTable part of ObjectMeta, stores annotations.
 func (s *Schema) addObjectMetaAnnotationsTable() {
 	table := s.tableFactory(s.tableName(omAnnotationsSuffix))
-
-	table.AddColumnRaw("id", PgTypeBigInt)
-	table.AddConstraintRaw(PgConstraintPK, "(id)")
+	table.AddBigIntPK()
 
 	table.AddColumnRaw("name", PgTypeText)
 	table.AddConstraintRaw(PgConstraintUnique, "(name)")
@@ -134,9 +139,7 @@ func (s *Schema) addObjectMetaAnnotationsTable() {
 // addObjectMetaReferencesTable part of ObjectMeta, stores references.
 func (s *Schema) addObjectMetaReferencesTable() {
 	table := s.tableFactory(s.tableName(omOwnerReferencesSuffix))
-
-	table.AddColumnRaw("id", PgTypeBigInt)
-	table.AddConstraintRaw(PgConstraintPK, "(id)")
+	table.AddBigIntPK()
 
 	table.AddColumnRaw("api_version", PgTypeText)
 	table.AddColumnRaw("kind", PgTypeText)
@@ -148,9 +151,7 @@ func (s *Schema) addObjectMetaReferencesTable() {
 // addObjectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
 func (s *Schema) addObjectMetaManagedFieldsTable() {
 	table := s.tableFactory(s.tableName(omManagedFieldsSuffix))
-
-	table.AddColumnRaw("id", PgTypeBigInt)
-	table.AddConstraintRaw(PgConstraintPK, "(id)")
+	table.AddBigIntPK()
 
 	table.AddColumnRaw("manager", PgTypeText)
 	table.AddColumnRaw("operation", PgTypeText)
@@ -163,12 +164,12 @@ func (s *Schema) addObjectMetaManagedFieldsTable() {
 // Generate trigger generation of metadata and CR tables, plus parsing of JSON-Schema properties to
 // create extra columns and tables. Can return error on JSON-Schema parsing.
 func (s *Schema) Generate(properties map[string]extv1beta1.JSONSchemaProps) error {
-	s.addObjectMetaReferencesTable()
-	s.addObjectMetaManagedFieldsTable()
-	s.addObjectMetaLabelsTable()
-	s.addObjectMetaAnnotationsTable()
-	s.addObjectMetaTable()
 	s.addCRTable()
+	s.addObjectMetaTable()
+	s.addObjectMetaAnnotationsTable()
+	s.addObjectMetaLabelsTable()
+	s.addObjectMetaManagedFieldsTable()
+	s.addObjectMetaReferencesTable()
 
 	return s.jsonSchemaParser(s.Name, properties)
 }
@@ -226,5 +227,5 @@ func (s *Schema) jsonSchemaParser(
 
 // NewSchema instantiate new Schema.
 func NewSchema(name string) *Schema {
-	return &Schema{Name: name, Tables: map[string]*Table{}}
+	return &Schema{Name: name}
 }

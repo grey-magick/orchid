@@ -10,11 +10,9 @@ type SQL struct {
 func (s *SQL) CreateTables() []string {
 	statements := []string{}
 	for _, table := range s.schema.Tables {
-		if s.schema.Name != table.Name {
-			statements = append(statements, table.String())
-		}
+		statements = append(statements, table.String())
 	}
-	return append(statements, s.schema.Tables[s.schema.Name].String())
+	return statements
 }
 
 // NewSQL instantiate an SQL.

@@ -62,6 +62,12 @@ func (t *Table) AddSerialPK() {
 	t.AddConstraintRaw(PgConstraintPK, "(id)")
 }
 
+// AddBigIntPK add a new column as a primary-key, using BigInt type.
+func (t *Table) AddBigIntPK() {
+	t.AddColumnRaw("id", PgTypeBigInt)
+	t.AddConstraintRaw(PgConstraintPK, "(id)")
+}
+
 // jsonSchemaFormatToPg based on json-schema format, return database type.
 func (t *Table) jsonSchemaFormatToPg(format string) string {
 	switch format {
