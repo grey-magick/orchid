@@ -51,22 +51,6 @@ func (s *Schema) tableFactory(tableName string) *Table {
 	return table
 }
 
-// addCRTable creates the primary table to store CR records. This table can be reused to include
-// more columns later on.
-func (s *Schema) addCRTable() {
-	table := s.tableFactory(s.Name)
-	table.AddSerialPK()
-
-	table.AddColumnRaw("kind", PgTypeText)
-	table.AddColumnRaw("api_version", PgTypeText)
-
-	table.AddColumnRaw("object_meta_id", PgTypeBigInt)
-	table.AddConstraintRaw(
-		PgConstraintFK,
-		fmt.Sprintf("(object_meta_id) references %s (id)", s.tableName(omSuffix)),
-	)
-}
-
 // addObjectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
 // described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (s *Schema) addObjectMetaTable() {
@@ -161,17 +145,28 @@ func (s *Schema) addObjectMetaManagedFieldsTable() {
 	table.AddColumnRaw("fields_v1", PgTypeText)
 }
 
-// Generate trigger generation of metadata and CR tables, plus parsing of JSON-Schema properties to
-// create extra columns and tables. Can return error on JSON-Schema parsing.
-func (s *Schema) Generate(properties map[string]extv1beta1.JSONSchemaProps) error {
-	s.addCRTable()
+// Generate trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
+// tables and columns. Can return error on JSON-Schema parsing.
+func (s *Schema) Generate(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
+	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties)
+}
+
+// addMetadata triggers the creation of ObjectMeta tables, and adding the relation between them.
+func (s *Schema) addMetadata(table *Table) {
 	s.addObjectMetaTable()
 	s.addObjectMetaAnnotationsTable()
 	s.addObjectMetaLabelsTable()
 	s.addObjectMetaManagedFieldsTable()
 	s.addObjectMetaReferencesTable()
 
-	return s.jsonSchemaParser(s.Name, properties)
+	s.addRelation(table, "metadata_id", s.tableName(omSuffix))
+}
+
+// addRelation creates the column and foreign key relation between those.
+func (s *Schema) addRelation(table *Table, columnName, childTableName string) {
+	table.AddColumnRaw(columnName, PgTypeBigInt)
+	referenceStmt := fmt.Sprintf("(%s) references %s (id)", columnName, childTableName)
+	table.AddConstraintRaw(PgConstraintFK, referenceStmt)
 }
 
 // jsonSchemaParser parse map of properties into more columns or tables, depending on the type of
@@ -181,24 +176,20 @@ func (s *Schema) jsonSchemaParser(
 	properties map[string]extv1beta1.JSONSchemaProps,
 ) error {
 	table := s.tableFactory(tableName)
-
-	// on creating new tables, making sure they have a primary-key
-	if s.Name != tableName {
-		table.AddSerialPK()
-	}
+	table.AddSerialPK()
 
 	for name, jsonSchema := range properties {
 		switch jsonSchema.Type {
 		case "object":
-			childTableName := fmt.Sprintf("%s_%s", tableName, name)
-			columnName := fmt.Sprintf("%s_id", childTableName)
-			table.AddColumnRaw(columnName, PgTypeBigInt)
-			table.AddConstraintRaw(
-				PgConstraintFK,
-				fmt.Sprintf("(%s) references %s (id)", columnName, childTableName),
-			)
-			if err := s.jsonSchemaParser(childTableName, jsonSchema.Properties); err != nil {
-				return err
+			if name == "metadata" && s.Name == tableName {
+				s.addMetadata(table)
+			} else {
+				childTableName := fmt.Sprintf("%s_%s", tableName, name)
+				columnName := fmt.Sprintf("%s_id", name)
+				s.addRelation(table, columnName, childTableName)
+				if err := s.jsonSchemaParser(childTableName, jsonSchema.Properties); err != nil {
+					return err
+				}
 			}
 		case "array":
 			itemsSchema := jsonSchema.Items.Schema

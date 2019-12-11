@@ -17,9 +17,9 @@ func TestORM_New(t *testing.T) {
 	})
 
 	t.Run("CreateSchemaTables", func(t *testing.T) {
-		properties := mocks.JSONSchemaPropsComplex()
+		openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 		schema := NewSchema("cr")
-		err := schema.Generate(properties)
+		err := schema.Generate(&openAPIV3Schema)
 		assert.NoError(t, err)
 
 		err = orm.CreateSchemaTables(schema)

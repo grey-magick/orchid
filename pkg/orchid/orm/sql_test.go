@@ -9,16 +9,16 @@ import (
 )
 
 func TestSQL_New(t *testing.T) {
-	properties := mocks.JSONSchemaPropsComplex()
+	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema("cr")
-	err := schema.Generate(properties)
+	err := schema.Generate(&openAPIV3Schema)
 	assert.NoError(t, err)
 
 	sqlLib := NewSQL(schema)
 
 	t.Run("CreateTables", func(t *testing.T) {
 		tables := sqlLib.CreateTables()
-		assert.Len(t, tables, 8)
+		assert.Len(t, tables, 9)
 
 		for _, statement := range tables {
 			t.Logf("%s;", statement)

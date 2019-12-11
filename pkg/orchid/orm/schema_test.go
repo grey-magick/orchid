@@ -9,12 +9,12 @@ import (
 )
 
 func TestSchema_New(t *testing.T) {
-	properties := mocks.JSONSchemaPropsComplex()
+	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema("cr")
 
 	t.Run("Generate", func(t *testing.T) {
-		err := schema.Generate(properties)
+		err := schema.Generate(&openAPIV3Schema)
 		assert.NoError(t, err)
-		assert.Equal(t, 8, len(schema.Tables))
+		assert.Len(t, schema.Tables, 9)
 	})
 }
