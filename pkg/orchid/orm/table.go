@@ -21,6 +21,7 @@ const (
 	PgTypeReal         = "real"
 	PgTypeDouble       = "double precision"
 	PgTypeSerial8      = "serial8"
+	PgTypeJSONB        = "jsonb"
 	PgConstraintPK     = "primary key"
 	PgConstraintFK     = "foreign key"
 	PgConstraintUnique = "unique"

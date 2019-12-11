@@ -51,6 +51,16 @@ func (s *Schema) tableFactory(tableName string) *Table {
 	return table
 }
 
+// addCRDTable create a special table to store CRDs.
+func (s *Schema) addCRDTable() {
+	table := s.tableFactory(s.tableName("crd"))
+	table.AddSerialPK()
+
+	table.AddColumnRaw("api_version", PgTypeText)
+	table.AddColumnRaw("kind", PgTypeText)
+	table.AddColumnRaw("data", PgTypeJSONB)
+}
+
 // addObjectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
 // described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (s *Schema) addObjectMetaTable() {
@@ -145,12 +155,6 @@ func (s *Schema) addObjectMetaManagedFieldsTable() {
 	table.AddColumnRaw("fields_v1", PgTypeText)
 }
 
-// Generate trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
-// tables and columns. Can return error on JSON-Schema parsing.
-func (s *Schema) Generate(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
-	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties)
-}
-
 // addMetadata triggers the creation of ObjectMeta tables, and adding the relation between them.
 func (s *Schema) addMetadata(table *Table) {
 	s.addObjectMetaTable()
@@ -167,6 +171,17 @@ func (s *Schema) addRelation(table *Table, columnName, childTableName string) {
 	table.AddColumnRaw(columnName, PgTypeBigInt)
 	referenceStmt := fmt.Sprintf("(%s) references %s (id)", columnName, childTableName)
 	table.AddConstraintRaw(PgConstraintFK, referenceStmt)
+}
+
+// StoreCRD creates the tables to store the actual CRDs.
+func (s *Schema) StoreCRD() {
+	s.addCRDTable()
+}
+
+// Generate trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
+// tables and columns. Can return error on JSON-Schema parsing.
+func (s *Schema) Generate(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
+	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties)
 }
 
 // jsonSchemaParser parse map of properties into more columns or tables, depending on the type of
