@@ -45,6 +45,15 @@ func (t *Table) String() string {
 		t.Name, strings.Join(columns, ", "), strings.Join(constrains, ", "))
 }
 
+// ColumNames return a slice of column names.
+func (t *Table) ColumNames() []string {
+	names := []string{}
+	for _, column := range t.Columns {
+		names = append(names, column.Name)
+	}
+	return names
+}
+
 // AddColumnRaw add a new column using informed type directly.
 func (t *Table) AddColumnRaw(name, rawType string) {
 	column := &Column{Name: name, Type: rawType}
