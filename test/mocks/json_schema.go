@@ -16,14 +16,23 @@ func JSONSchemaProps(
 	}
 }
 
-func JSONSchemaPropsComplex() map[string]extv1beta1.JSONSchemaProps {
-	return map[string]extv1beta1.JSONSchemaProps{
-		"simple": JSONSchemaProps("integer", "int32", nil),
-		"complex": JSONSchemaProps("object", "", map[string]extv1beta1.JSONSchemaProps{
-			"simple_nested": JSONSchemaProps("integer", "int32", nil),
-			"complex_nested": JSONSchemaProps("object", "", map[string]extv1beta1.JSONSchemaProps{
-				"attribute": JSONSchemaProps("string", "byte", nil),
+// OpenAPIV3SchemaMock creates a realistic version of openAPIV3Schema entry in Kubernetes CRDs.
+func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
+	return extv1beta1.JSONSchemaProps{
+		Properties: map[string]extv1beta1.JSONSchemaProps{
+			"apiVersion": JSONSchemaProps("string", "", nil),
+			"kind":       JSONSchemaProps("string", "", nil),
+			"metadata":   JSONSchemaProps("object", "", nil),
+			"spec": JSONSchemaProps("object", "", map[string]extv1beta1.JSONSchemaProps{
+				"simple": JSONSchemaProps("integer", "int32", nil),
+				"complex": JSONSchemaProps("object", "", map[string]extv1beta1.JSONSchemaProps{
+					"simple_nested": JSONSchemaProps("integer", "int32", nil),
+					"complex_nested": JSONSchemaProps("object", "", map[string]extv1beta1.JSONSchemaProps{
+						"attribute": JSONSchemaProps("string", "byte", nil),
+					}),
+				}),
 			}),
-		}),
+			"status": JSONSchemaProps("string", "", nil),
+		},
 	}
 }
