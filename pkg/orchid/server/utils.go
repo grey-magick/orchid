@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -31,13 +32,18 @@ func (v Vars) GetAPIVersion() (string, error) {
 }
 
 // ResourceFunc maps vars to runtime.Object
-type ResourceFunc func(vars Vars) runtime.Object
+type ResourceFunc func(vars Vars, body []byte) runtime.Object
 
 // Adapt decorates a ResourceFunc returning a HandlerFunc to be installed in the router.
 func Adapt(resourceFunc ResourceFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(400)
+		}
+
 		// execute the given resourceFunc
-		obj := resourceFunc(mux.Vars(r))
+		obj := resourceFunc(mux.Vars(r), body)
 		if obj == nil {
 			w.WriteHeader(404)
 			return

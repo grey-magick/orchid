@@ -1,7 +1,11 @@
 package runtime
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // JSONSchemaNode represents a JSON schema node.
@@ -26,8 +30,16 @@ func NewJSONSchemaFields(keysAndValues ...interface{}) JSONSchemaFields {
 		if !ok {
 			panic("should be string")
 		}
-		v := keysAndValues[i+1].(JSONSchemaNode)
-		f[k] = v
+		currentValue := keysAndValues[i+1]
+		var value JSONSchemaNode
+		switch y := currentValue.(type) {
+		case map[string]interface{}:
+			value = y
+		case JSONSchemaNode:
+			value = y
+		}
+
+		f[k] = value
 	}
 
 	return f
@@ -54,13 +66,23 @@ type Object interface {
 	SetJSONSchemaFields(fields JSONSchemaFields)
 	GetJSONSchemaField(name string) JSONSchemaNode
 	SetJSONSchemaField(name string, node JSONSchemaNode)
+	GetObjectKind() schema.ObjectKind
+	DeepCopyObject() runtime.Object
 }
 
 // object is the concrete Object implementation used in Orchid to represent user defined objects.
 type object struct {
-	metav1.ObjectMeta
-	metav1.TypeMeta
-	JSONSchemaFields
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",omitempty"`
+	JSONSchemaFields  JSONSchemaFields `json:",omitempty"`
+}
+
+func (o *object) GetJSONSchemaField(name string) JSONSchemaNode {
+	return o.JSONSchemaFields.GetJSONSchemaField(name)
+}
+
+func (o *object) SetJSONSchemaField(name string, node JSONSchemaNode) {
+	o.JSONSchemaFields.SetJSONSchemaField(name, node)
 }
 
 // SetJSONSchemaFields stores the given fields.
@@ -69,7 +91,54 @@ func (o *object) SetJSONSchemaFields(fields JSONSchemaFields) {
 	o.JSONSchemaFields = fields
 }
 
+func (o *object) DeepCopyObject() runtime.Object {
+	// TODO: DeepCopy
+	return o
+}
+
 var _ Object = &object{}
+
+func (o *object) UnmarshalJSON(data []byte) error {
+	d := make(map[string]interface{})
+	err := json.Unmarshal(data, &d)
+	if err != nil {
+		return err
+	}
+
+	// remove fields handled by ObjectMeta and TypeMeta
+	delete(d, "apiVersion")
+	delete(d, "kind")
+	delete(d, "metadata")
+
+	// TODO: revisit this code, it looks weird now I'm thinking
+	fields := NewJSONSchemaFields(MapToList(d)...)
+	o.SetJSONSchemaFields(fields)
+
+	// create a type alias to object to avoid deep recursion.
+	type alias object
+	aux := &struct {
+		*alias
+	}{
+		alias: (*alias)(o),
+	}
+
+	// unmarshal using the alias, which should change the object as side effect.
+	err = json.Unmarshal(data, aux)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MapToList transforms a map to a slice of interface{}
+func MapToList(d map[string]interface{}) []interface{} {
+	var l []interface{}
+	for k, v := range d {
+		l = append(l, k, v)
+	}
+	return l
+}
 
 // NewObject returns a new Object.
 func NewObject() Object {
