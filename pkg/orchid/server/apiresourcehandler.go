@@ -73,6 +73,10 @@ func (h *APIResourceHandler) APIGroupLister(vars Vars) runtime.Object {
 	}
 }
 
+func (h *APIResourceHandler) OpenAPIHandler(vars Vars) runtime.Object {
+	panic("implement me")
+}
+
 // Register adds the handler routes in the router.
 func (h *APIResourceHandler) Register(router *mux.Router) {
 	// used by kubectl to list objects of a particular resource
@@ -82,6 +86,10 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister))
 	// used by kubectl to discover available API Groups
 	router.HandleFunc("/apis", Adapt(h.APIGroupLister))
+
+	// used by kubectl to gather the OpenAPI specification of resources managed by this server.
+	// TODO: implement OpenAPI v2 generator from registered CRDs
+	router.HandleFunc("/openapi/v2", Adapt(h.OpenAPIHandler))
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
