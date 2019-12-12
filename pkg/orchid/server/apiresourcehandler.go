@@ -4,6 +4,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +31,7 @@ var (
 // CRDService manages CRDs.
 type CRDService interface {
 	// Create registers a CRD.
-	Create(object runtime.Object)
+	Create(object *v1beta1.CustomResourceDefinition) error
 }
 
 type APIResourceHandler struct {
@@ -101,7 +102,15 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8srunt
 
 	if isCustomResourceDefinition(obj) {
 		// create all storage resources for this new object.
-		h.CRDService.Create(obj)
+		var crd *v1beta1.CustomResourceDefinition
+		err := yaml.Unmarshal(body, crd)
+		if err != nil {
+			panic(err)
+		}
+		err = h.CRDService.Create(crd)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return obj

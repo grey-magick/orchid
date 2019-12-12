@@ -27,15 +27,19 @@ func (s *Schema) prepend(table *Table) {
 }
 
 // TableFactory return existing or create new table instance.
-func (s *Schema) TableFactory(tableName string) *Table {
+func (s *Schema) TableFactory(tableName string, tablePath []string) *Table {
 	for _, table := range s.Tables {
 		if tableName == table.Name {
 			return table
 		}
 	}
-	table := NewTable(tableName)
+	table := NewTable(tableName, tablePath)
 	s.prepend(table)
 	return table
+}
+
+func (s *Schema) GetTable(tableName string) *Table {
+	panic("implement me")
 }
 
 // isRequiredProp checks for required properties by being part of required string slice.
@@ -51,6 +55,7 @@ func (s *Schema) isRequiredProp(name string, required []string) bool {
 // handleObject creates extra column and recursively new tables.
 func (s *Schema) handleObject(
 	table *Table,
+	tablePath []string,
 	name string,
 	notNull bool,
 	jsonSchema *extv1beta1.JSONSchemaProps,
@@ -65,7 +70,8 @@ func (s *Schema) handleObject(
 	columnName := fmt.Sprintf("%s_id", name)
 	table.AddBigIntFK(columnName, relatedTableName, notNull)
 
-	return s.jsonSchemaParser(relatedTableName, jsonSchema.Properties, jsonSchema.Required)
+	return s.jsonSchemaParser(
+		relatedTableName, tablePath, jsonSchema.Properties, jsonSchema.Required)
 }
 
 // handleArray creates an array column.
@@ -114,10 +120,13 @@ func (s *Schema) handleColumn(
 // entry. It can return errors on not being able to deal with a given JSON-Schema type.
 func (s *Schema) jsonSchemaParser(
 	tableName string,
+	tablePath []string,
 	properties map[string]extv1beta1.JSONSchemaProps,
 	required []string,
 ) error {
-	table := s.TableFactory(tableName)
+	table := s.TableFactory(tableName, tablePath)
+	tablePath = append(tablePath, tableName)
+
 	table.AddSerialPK()
 
 	for name, jsonSchema := range properties {
@@ -126,7 +135,7 @@ func (s *Schema) jsonSchemaParser(
 
 		switch jsonSchema.Type {
 		case "object":
-			if err := s.handleObject(table, name, notNull, &jsonSchema); err != nil {
+			if err := s.handleObject(table, tablePath, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		case "array":
@@ -155,7 +164,8 @@ func (s *Schema) jsonSchemaParser(
 // GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
 // tables and columns. Can return error on JSON-Schema parsing.
 func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
-	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties, openAPIV3Schema.Required)
+	return s.jsonSchemaParser(
+		s.Name, []string{}, openAPIV3Schema.Properties, openAPIV3Schema.Required)
 }
 
 // GenerateCRD creates the tables to store the actual CRDs.

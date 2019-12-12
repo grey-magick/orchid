@@ -20,7 +20,7 @@ func TestSchema_CR(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, schema.Tables, expectedAmountOfTables)
 
-		table := schema.TableFactory("cr_spec_complex_complex_nested")
+		table := schema.TableFactory("cr_spec_complex_complex_nested", nil)
 		column := table.GetColumn("attribute")
 
 		assert.NotNil(t, column)

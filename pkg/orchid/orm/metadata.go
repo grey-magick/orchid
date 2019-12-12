@@ -21,7 +21,7 @@ const (
 // objectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
 // described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (m *Metadata) objectMetaTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omSuffix))
+	table := m.schema.TableFactory(m.schema.TableName(omSuffix), nil)
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -47,7 +47,7 @@ func (m *Metadata) objectMetaTable() {
 
 // objectMetaLabelsTable part of ObjectMeta, stores labels.
 func (m *Metadata) objectMetaLabelsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix))
+	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix), nil)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -58,7 +58,7 @@ func (m *Metadata) objectMetaLabelsTable() {
 
 // objectMetaAnnotationsTable part of ObjectMeta, stores annotations.
 func (m *Metadata) objectMetaAnnotationsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix))
+	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix), nil)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -69,7 +69,7 @@ func (m *Metadata) objectMetaAnnotationsTable() {
 
 // objectMetaReferencesTable part of ObjectMeta, stores references.
 func (m *Metadata) objectMetaReferencesTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix))
+	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), nil)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText})
@@ -81,7 +81,7 @@ func (m *Metadata) objectMetaReferencesTable() {
 
 // objectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
 func (m *Metadata) objectMetaManagedFieldsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix))
+	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), nil)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "manager", Type: PgTypeText})

@@ -8,7 +8,7 @@ import (
 
 func TestTable_New(t *testing.T) {
 	t.Run("AddSerialPK", func(t *testing.T) {
-		table := NewTable("test")
+		table := NewTable("test", nil)
 		table.AddSerialPK()
 
 		assert.Len(t, table.Columns, 1)
@@ -19,7 +19,7 @@ func TestTable_New(t *testing.T) {
 	})
 
 	t.Run("AddBigIntPK", func(t *testing.T) {
-		table := NewTable("test")
+		table := NewTable("test", nil)
 		table.AddBigIntPK()
 
 		assert.Len(t, table.Columns, 1)
@@ -30,7 +30,7 @@ func TestTable_New(t *testing.T) {
 	})
 
 	t.Run("AddBigIntFK", func(t *testing.T) {
-		table := NewTable("test")
+		table := NewTable("test", nil)
 		table.AddBigIntFK("column", "onTable", false)
 
 		assert.Len(t, table.Columns, 1)
@@ -41,14 +41,14 @@ func TestTable_New(t *testing.T) {
 	})
 
 	t.Run("ColumnNames", func(t *testing.T) {
-		table := NewTable("test")
+		table := NewTable("test", nil)
 		table.AddBigIntFK("column", "onTable", true)
 
 		assert.Equal(t, []string{"column"}, table.ColumNames())
 	})
 
 	t.Run("String", func(t *testing.T) {
-		table := NewTable("test")
+		table := NewTable("test", nil)
 
 		assert.NotEmpty(t, table.String())
 	})

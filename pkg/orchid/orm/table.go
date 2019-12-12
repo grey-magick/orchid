@@ -10,6 +10,7 @@ type Table struct {
 	Name        string        // table name
 	Columns     []*Column     // table columns
 	Constraints []*Constraint // constraints
+	Path        []string      // path to the node in the Orchid object
 }
 
 // GetColumn return the instance of column based on name.
@@ -81,6 +82,6 @@ func (t *Table) String() string {
 }
 
 // NewTable instantiate a new Table.
-func NewTable(name string) *Table {
-	return &Table{Name: name}
+func NewTable(name string, tablePath []string) *Table {
+	return &Table{Name: name, Path: tablePath}
 }

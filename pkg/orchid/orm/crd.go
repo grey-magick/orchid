@@ -7,7 +7,7 @@ type CRD struct {
 
 // crdTable create a special table to store CRDs.
 func (c *CRD) crdTable() {
-	table := c.schema.TableFactory(c.schema.TableName("crd"))
+	table := c.schema.TableFactory(c.schema.TableName("crd"), []string{})
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText, NotNull: true})

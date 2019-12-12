@@ -8,6 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
 // Options are the server parameters.
@@ -23,8 +25,18 @@ type Server struct {
 
 // NewServer creates a new Server using options.
 func NewServer(logger logr.Logger, options Options) *Server {
+	pgOrm := orm.NewORM("user=postgres password=1 dbname=postgres sslmode=disable")
+
+	err := pgOrm.Connect()
+	if err != nil {
+		panic(err)
+	}
+
 	router := mux.NewRouter()
-	crdService := NewCRDService()
+	crdService, err := NewCRDService(pgOrm)
+	if err != nil {
+		panic(err)
+	}
 	AddAPIResourceHandler(logger.WithName("handler"), crdService, router)
 
 	return &Server{

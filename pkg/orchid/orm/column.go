@@ -9,6 +9,7 @@ type Column struct {
 	Name    string // column name
 	Type    string // column type
 	NotNull bool   // not null flag
+	Path    string // path within the table
 }
 
 // String print out column and type.
