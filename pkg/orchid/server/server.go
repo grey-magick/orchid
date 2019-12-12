@@ -24,7 +24,8 @@ type Server struct {
 // NewServer creates a new Server using options.
 func NewServer(logger logr.Logger, options Options) *Server {
 	router := mux.NewRouter()
-	AddAPIResourceHandler(router)
+	crdService := NewCRDService()
+	AddAPIResourceHandler(logger.WithName("handler"), crdService, router)
 
 	return &Server{
 		Logger: logger.WithName("server"),
@@ -57,6 +58,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.Server.Shutdown(ctx)
 }
 
-func AddAPIResourceHandler(router *mux.Router) {
-	NewAPIResourceHandler().Register(router)
+// AddAPIResourceHandler registers the API server routes in router.
+func AddAPIResourceHandler(logger logr.Logger, crdService CRDService, router *mux.Router) {
+	NewAPIResourceHandler(logger, crdService).Register(router)
 }

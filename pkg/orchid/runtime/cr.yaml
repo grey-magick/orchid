@@ -1,0 +1,9 @@
+apiVersion: examples.orchid.io
+kind: Example
+metadata:
+  name: example
+  namespace: example
+spec:
+  intField: 1024
+  stringField: This is a string
+  boolField: true

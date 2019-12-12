@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/assert/cmp"
 )
@@ -41,4 +43,46 @@ func buildExampleSpec() JSONSchemaNode {
 	specField := make(JSONSchemaNode)
 	specField["field1"] = "value1"
 	return specField
+}
+
+// readAsset reads an asset from the filesystem, panicking in case of error
+func readAsset(path string) []byte {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// Test_object_UnmarshalJSON verifies whether sample manifests can be unmarshalled to an Orchid
+// object.
+func Test_object_UnmarshalJSON(t *testing.T) {
+	type args struct {
+		data []byte
+	}
+	var tests = []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			"cr",
+			args{data: readAsset("cr.yaml")},
+			false,
+		},
+		{
+			"crd",
+			args{data: readAsset("crd.yaml")},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := &object{}
+			err := yaml.Unmarshal(tt.args.data, o)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

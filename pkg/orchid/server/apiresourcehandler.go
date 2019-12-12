@@ -1,10 +1,14 @@
 package server
 
 import (
+	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/isutton/orchid/pkg/orchid/runtime"
 )
 
 var (
@@ -23,11 +27,20 @@ var (
 	examplesGroupVersion = examplesGroup + "/" + examplesVersion
 )
 
+// CRDService manages CRDs.
+type CRDService interface {
+	// Create registers a CRD.
+	Create(object runtime.Object)
+}
+
 type APIResourceHandler struct {
+	// CRDService is responsible for managing CRDs.
+	CRDService CRDService
+	Logger     logr.Logger
 }
 
 // ObjectLister returns a list of objects.
-func (h *APIResourceHandler) ObjectLister(vars Vars) runtime.Object {
+func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) k8sruntime.Object {
 	apiVersion, err := vars.GetAPIVersion()
 	if err != nil {
 		// TODO: handle error properly
@@ -42,7 +55,7 @@ func (h *APIResourceHandler) ObjectLister(vars Vars) runtime.Object {
 }
 
 // APIResourceLister lists API resources.
-func (h *APIResourceHandler) APIResourceLister(vars Vars) runtime.Object {
+func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntime.Object {
 	return &metav1.APIResourceList{
 		// TODO: add GroupVersion argument
 		GroupVersion: examplesGroupVersion,
@@ -53,7 +66,7 @@ func (h *APIResourceHandler) APIResourceLister(vars Vars) runtime.Object {
 }
 
 // APIGroupLister lists API groups.
-func (h *APIResourceHandler) APIGroupLister(vars Vars) runtime.Object {
+func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.Object {
 	return &metav1.APIGroupList{
 		Groups: []metav1.APIGroup{
 			{
@@ -73,8 +86,44 @@ func (h *APIResourceHandler) APIGroupLister(vars Vars) runtime.Object {
 	}
 }
 
+func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) k8sruntime.Object {
+	panic("implement me")
+}
+
+// ResourcePostHandler handles the create resource action.
+func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8sruntime.Object {
+	// deserialize the body to an Orchid object
+	obj := runtime.NewObject()
+	err := yaml.Unmarshal(body, obj)
+	if err != nil {
+		panic(err)
+	}
+
+	if isCustomResourceDefinition(obj) {
+		// create all storage resources for this new object.
+		h.CRDService.Create(obj)
+	}
+
+	return obj
+}
+
+// isCustomResourceDefinition returns whether obj is a CustomResourceDefinition
+func isCustomResourceDefinition(obj runtime.Object) bool {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+
+	return gvk.Group == "apiextensions.k8s.io" &&
+		gvk.Version == "v1" &&
+		gvk.Kind == "CustomResourceDefinition"
+}
+
 // Register adds the handler routes in the router.
 func (h *APIResourceHandler) Register(router *mux.Router) {
+	// create a resource
+	// used by kubectl to create a resource
+	// should support same serializations kubectl does
+	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ResourcePostHandler)).
+		Methods("POST")
+
 	// used by kubectl to list objects of a particular resource
 	// TODO: investigate create a Handler specialized in resource entities
 	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ObjectLister))
@@ -82,9 +131,16 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister))
 	// used by kubectl to discover available API Groups
 	router.HandleFunc("/apis", Adapt(h.APIGroupLister))
+
+	// used by kubectl to gather the OpenAPI specification of resources managed by this server.
+	// TODO: implement OpenAPI v2 generator from registered CRDs
+	router.HandleFunc("/openapi/v2", Adapt(h.OpenAPIHandler))
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
-func NewAPIResourceHandler() *APIResourceHandler {
-	return &APIResourceHandler{}
+func NewAPIResourceHandler(logger logr.Logger, crdService CRDService) *APIResourceHandler {
+	return &APIResourceHandler{
+		Logger:     logger,
+		CRDService: crdService,
+	}
 }
