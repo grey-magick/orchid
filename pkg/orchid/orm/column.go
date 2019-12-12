@@ -21,16 +21,16 @@ func (c *Column) String() string {
 }
 
 // NewColumn instantiate a new column using type and format.
-func NewColumn(name, jsonSchemaType, format string) (*Column, error) {
+func NewColumn(name, jsonSchemaType, format string, notNull bool) (*Column, error) {
 	columnType, err := ColumnTypeParser(jsonSchemaType, format)
 	if err != nil {
 		return nil, err
 	}
-	return &Column{Name: name, Type: columnType}, nil
+	return &Column{Name: name, Type: columnType, NotNull: notNull}, nil
 }
 
 // NewColumnArray instantiate a new array column using type, format and max items.
-func NewColumnArray(name, jsonSchemaType, format string, max *int64) (*Column, error) {
+func NewColumnArray(name, jsonSchemaType, format string, max *int64, notNull bool) (*Column, error) {
 	columnType, err := ColumnTypeParser(jsonSchemaType, format)
 	if err != nil {
 		return nil, err
@@ -40,5 +40,5 @@ func NewColumnArray(name, jsonSchemaType, format string, max *int64) (*Column, e
 	} else {
 		columnType = fmt.Sprintf("%s[]", columnType)
 	}
-	return &Column{Name: name, Type: columnType}, nil
+	return &Column{Name: name, Type: columnType, NotNull: notNull}, nil
 }

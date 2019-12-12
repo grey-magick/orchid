@@ -12,6 +12,16 @@ type Table struct {
 	Constraints []*Constraint // constraints
 }
 
+// GetColumn return the instance of column based on name.
+func (t *Table) GetColumn(name string) *Column {
+	for _, column := range t.Columns {
+		if name == column.Name {
+			return column
+		}
+	}
+	return nil
+}
+
 // AddConstraint add a new constraint.
 func (t *Table) AddConstraint(constraint *Constraint) {
 	t.Constraints = append(t.Constraints, constraint)
@@ -32,8 +42,8 @@ func (t *Table) AddBigIntPK() {
 }
 
 // AddForeignKey adds a new column with foreign-key constraint.
-func (t *Table) AddBigIntFK(columnName, relatedTableName string) {
-	t.AddColumn(&Column{Name: columnName, Type: PgTypeBigInt})
+func (t *Table) AddBigIntFK(columnName, relatedTableName string, notNull bool) {
+	t.AddColumn(&Column{Name: columnName, Type: PgTypeBigInt, NotNull: notNull})
 	t.AddConstraint(&Constraint{
 		Type:              PgConstraintFK,
 		ColumnName:        columnName,

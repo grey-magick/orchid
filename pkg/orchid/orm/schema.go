@@ -38,10 +38,21 @@ func (s *Schema) TableFactory(tableName string) *Table {
 	return table
 }
 
+// isRequiredProp checks for required properties by being part of required string slice.
+func (s *Schema) isRequiredProp(name string, required []string) bool {
+	for _, requiredProp := range required {
+		if name == requiredProp {
+			return true
+		}
+	}
+	return false
+}
+
 // handleObject creates extra column and recursively new tables.
 func (s *Schema) handleObject(
 	table *Table,
 	name string,
+	notNull bool,
 	jsonSchema *extv1beta1.JSONSchemaProps,
 ) error {
 	if name == "metadata" && s.Name == table.Name {
@@ -52,19 +63,26 @@ func (s *Schema) handleObject(
 
 	relatedTableName := fmt.Sprintf("%s_%s", table.Name, name)
 	columnName := fmt.Sprintf("%s_id", name)
-	table.AddBigIntFK(columnName, relatedTableName)
+	table.AddBigIntFK(columnName, relatedTableName, notNull)
 
-	return s.jsonSchemaParser(relatedTableName, jsonSchema.Properties)
+	return s.jsonSchemaParser(relatedTableName, jsonSchema.Properties, jsonSchema.Required)
 }
 
 // handleArray creates an array column.
 func (s *Schema) handleArray(
 	table *Table,
 	name string,
+	notNull bool,
 	jsonSchema *extv1beta1.JSONSchemaProps,
 ) error {
 	itemsSchema := jsonSchema.Items.Schema
-	column, err := NewColumnArray(name, itemsSchema.Type, itemsSchema.Format, jsonSchema.MaxItems)
+	column, err := NewColumnArray(
+		name,
+		itemsSchema.Type,
+		itemsSchema.Format,
+		jsonSchema.MaxItems,
+		notNull,
+	)
 	if err != nil {
 		return err
 	}
@@ -76,9 +94,15 @@ func (s *Schema) handleArray(
 func (s *Schema) handleColumn(
 	table *Table,
 	name string,
+	notNull bool,
 	jsonSchema *extv1beta1.JSONSchemaProps,
 ) error {
-	column, err := NewColumn(name, jsonSchema.Type, jsonSchema.Format)
+	column, err := NewColumn(
+		name,
+		jsonSchema.Type,
+		jsonSchema.Format,
+		notNull,
+	)
 	if err != nil {
 		return err
 	}
@@ -91,30 +115,32 @@ func (s *Schema) handleColumn(
 func (s *Schema) jsonSchemaParser(
 	tableName string,
 	properties map[string]extv1beta1.JSONSchemaProps,
+	required []string,
 ) error {
 	table := s.TableFactory(tableName)
 	table.AddSerialPK()
 
 	for name, jsonSchema := range properties {
+		notNull := s.isRequiredProp(name, required)
 		switch jsonSchema.Type {
 		case "object":
-			if err := s.handleObject(table, name, &jsonSchema); err != nil {
+			if err := s.handleObject(table, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		case "array":
-			if err := s.handleArray(table, name, &jsonSchema); err != nil {
+			if err := s.handleArray(table, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		case "string":
-			if err := s.handleColumn(table, name, &jsonSchema); err != nil {
+			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		case "integer":
-			if err := s.handleColumn(table, name, &jsonSchema); err != nil {
+			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		case "long":
-			if err := s.handleColumn(table, name, &jsonSchema); err != nil {
+			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
 				return err
 			}
 		default:
@@ -127,7 +153,7 @@ func (s *Schema) jsonSchemaParser(
 // GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
 // tables and columns. Can return error on JSON-Schema parsing.
 func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
-	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties)
+	return s.jsonSchemaParser(s.Name, openAPIV3Schema.Properties, openAPIV3Schema.Required)
 }
 
 // GenerateCRD creates the tables to store the actual CRDs.

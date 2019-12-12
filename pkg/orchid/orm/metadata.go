@@ -35,14 +35,14 @@ func (m *Metadata) objectMetaTable() {
 	table.AddColumn(&Column{Name: "deletion_timestamp", Type: PgTypeText})
 	table.AddColumn(&Column{Name: "deletion_grace_period_seconds", Type: PgTypeBigInt})
 
-	table.AddBigIntFK("labels_id", m.schema.TableName(omLabelsSuffix))
-	table.AddBigIntFK("annotations_id", m.schema.TableName(omAnnotationsSuffix))
-	table.AddBigIntFK("owner_references_id", m.schema.TableName(omOwnerReferencesSuffix))
+	table.AddBigIntFK("labels_id", m.schema.TableName(omLabelsSuffix), false)
+	table.AddBigIntFK("annotations_id", m.schema.TableName(omAnnotationsSuffix), false)
+	table.AddBigIntFK("owner_references_id", m.schema.TableName(omOwnerReferencesSuffix), false)
 
 	table.AddColumn(&Column{Name: "finalizers", Type: PgTypeTextArray})
 	table.AddColumn(&Column{Name: "cluster_name", Type: PgTypeText})
 
-	table.AddBigIntFK("managed_fields_id", m.schema.TableName(omManagedFieldsSuffix))
+	table.AddBigIntFK("managed_fields_id", m.schema.TableName(omManagedFieldsSuffix), false)
 }
 
 // objectMetaLabelsTable part of ObjectMeta, stores labels.
@@ -100,7 +100,7 @@ func (m *Metadata) Add(table *Table) {
 	m.objectMetaManagedFieldsTable()
 	m.objectMetaReferencesTable()
 
-	table.AddBigIntFK("metadata_id", m.schema.TableName(omSuffix))
+	table.AddBigIntFK("metadata_id", m.schema.TableName(omSuffix), true)
 }
 
 // NewMetadata instantiate Metadata.

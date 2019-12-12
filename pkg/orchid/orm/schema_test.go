@@ -16,13 +16,21 @@ func TestSchema_CR(t *testing.T) {
 
 	t.Run("GenerateCR", func(t *testing.T) {
 		err := schema.GenerateCR(&openAPIV3Schema)
+
 		assert.NoError(t, err)
 		assert.Len(t, schema.Tables, expectedAmountOfTables)
+
+		table := schema.TableFactory("cr_spec_complex_complex_nested")
+		column := table.GetColumn("attribute")
+
+		assert.NotNil(t, column)
+		assert.True(t, column.NotNull)
 	})
 
 	t.Run("TablesReversed", func(t *testing.T) {
 		reversed := schema.TablesReversed()
 		reversedLen := len(reversed)
+
 		assert.Equal(t, reversedLen, expectedAmountOfTables)
 		assert.Equal(t, schema.Tables[0].Name, reversed[reversedLen-1].Name)
 	})

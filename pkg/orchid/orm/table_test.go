@@ -7,8 +7,6 @@ import (
 )
 
 func TestTable_New(t *testing.T) {
-	// table := NewTable("test")
-
 	t.Run("AddSerialPK", func(t *testing.T) {
 		table := NewTable("test")
 		table.AddSerialPK()
@@ -33,7 +31,7 @@ func TestTable_New(t *testing.T) {
 
 	t.Run("AddBigIntFK", func(t *testing.T) {
 		table := NewTable("test")
-		table.AddBigIntFK("column", "onTable")
+		table.AddBigIntFK("column", "onTable", false)
 
 		assert.Len(t, table.Columns, 1)
 		assert.Equal(t, PgTypeBigInt, table.Columns[0].Type)
@@ -44,7 +42,7 @@ func TestTable_New(t *testing.T) {
 
 	t.Run("ColumnNames", func(t *testing.T) {
 		table := NewTable("test")
-		table.AddBigIntFK("column", "onTable")
+		table.AddBigIntFK("column", "onTable", true)
 
 		assert.Equal(t, []string{"column"}, table.ColumNames())
 	})
