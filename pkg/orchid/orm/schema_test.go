@@ -41,7 +41,7 @@ func TestSchema_CRD(t *testing.T) {
 
 	schema := NewSchema("crd")
 
-	t.Run("GenerateCR", func(t *testing.T) {
+	t.Run("GenerateCRD", func(t *testing.T) {
 		schema.GenerateCRD()
 
 		assert.Len(t, schema.Tables, expectedAmountOfTables)

@@ -121,7 +121,9 @@ func (s *Schema) jsonSchemaParser(
 	table.AddSerialPK()
 
 	for name, jsonSchema := range properties {
+		// checking if property name required, therefore not null column
 		notNull := s.isRequiredProp(name, required)
+
 		switch jsonSchema.Type {
 		case "object":
 			if err := s.handleObject(table, name, notNull, &jsonSchema); err != nil {
