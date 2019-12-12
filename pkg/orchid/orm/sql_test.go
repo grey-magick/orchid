@@ -13,28 +13,33 @@ func TestSQL_New(t *testing.T) {
 
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema("cr")
-	err := schema.Generate(&openAPIV3Schema)
+	err := schema.GenerateCR(&openAPIV3Schema)
 	assert.NoError(t, err)
 
 	sqlLib := NewSQL(schema)
 
 	t.Run("CreateTables", func(t *testing.T) {
-		tables := sqlLib.CreateTables()
-		assert.Len(t, tables, expectedAmountOfTables)
+		createTableStmts := sqlLib.CreateTables()
+		assert.Len(t, createTableStmts, expectedAmountOfTables)
 
-		for _, statement := range tables {
+		for _, statement := range createTableStmts {
 			t.Logf("%s;", statement)
 			assert.Contains(t, statement, "create table")
 		}
 	})
 
 	t.Run("Insert", func(t *testing.T) {
-		inserts := sqlLib.Insert()
-		assert.Len(t, inserts, expectedAmountOfTables)
+		insertStmts := sqlLib.Insert()
+		assert.Len(t, insertStmts, expectedAmountOfTables)
 
-		for name, insert := range inserts {
-			t.Logf("table='%s', insert='%s'", name, insert)
-			assert.Contains(t, insert, "insert into")
+		for name, statement := range insertStmts {
+			t.Logf("table='%s', insert='%s'", name, statement)
+			assert.Contains(t, statement, "insert into")
 		}
+	})
+
+	t.Run("Select", func(t *testing.T) {
+		selectStmt := sqlLib.Select()
+		t.Logf("select='%s'", selectStmt)
 	})
 }

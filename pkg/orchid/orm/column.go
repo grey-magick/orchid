@@ -6,11 +6,39 @@ import (
 
 // Column represents columns.
 type Column struct {
-	Name string // column name
-	Type string // column type
+	Name    string // column name
+	Type    string // column type
+	NotNull bool   // not null flag
 }
 
 // String print out column and type.
 func (c *Column) String() string {
-	return fmt.Sprintf("%s %s", c.Name, c.Type)
+	var notNull string
+	if c.NotNull {
+		notNull = "not null"
+	}
+	return fmt.Sprintf("%s %s %s", c.Name, c.Type, notNull)
+}
+
+// NewColumn instantiate a new column using type and format.
+func NewColumn(name, jsonSchemaType, format string) (*Column, error) {
+	columnType, err := ColumnTypeParser(jsonSchemaType, format)
+	if err != nil {
+		return nil, err
+	}
+	return &Column{Name: name, Type: columnType}, nil
+}
+
+// NewColumnArray instantiate a new array column using type, format and max items.
+func NewColumnArray(name, jsonSchemaType, format string, max *int64) (*Column, error) {
+	columnType, err := ColumnTypeParser(jsonSchemaType, format)
+	if err != nil {
+		return nil, err
+	}
+	if max != nil {
+		columnType = fmt.Sprintf("%s[%d]", columnType, *max)
+	} else {
+		columnType = fmt.Sprintf("%s[]", columnType)
+	}
+	return &Column{Name: name, Type: columnType}, nil
 }

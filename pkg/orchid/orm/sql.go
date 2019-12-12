@@ -35,6 +35,37 @@ func (s *SQL) Insert() map[string]string {
 	return inserts
 }
 
+// Select generates a select statement for the schema.
+func (s *SQL) Select() string {
+	columns := []string{}
+	from := []string{}
+	where := []string{}
+
+	tables := s.schema.TablesReversed()
+	for _, table := range tables {
+		tableName := table.Name
+		for _, column := range table.ColumNames() {
+			columns = append(columns, fmt.Sprintf("%s.%s", tableName, column))
+		}
+		from = append(from, tableName)
+		for _, constraint := range table.Constraints {
+			if constraint.Type != PgConstraintFK {
+				continue
+			}
+			where = append(where, fmt.Sprintf(
+				"%s.%s=%s.%s",
+				tableName,
+				constraint.ColumnName,
+				constraint.RelatedTableName,
+				constraint.RelatedColumnName,
+			))
+		}
+	}
+
+	return fmt.Sprintf("select %s from %s where %s",
+		strings.Join(columns, ", "), strings.Join(from, ", "), strings.Join(where, " AND "))
+}
+
 // CreateTables return the statements needed to create Schema tables, leaving primary Schema table
 // as last.
 func (s *SQL) CreateTables() []string {
