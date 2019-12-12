@@ -92,6 +92,7 @@ func (m *Metadata) objectMetaManagedFieldsTable() {
 	table.AddColumn(&Column{Name: "fields_v1", Type: PgTypeText})
 }
 
+// Add object-meta tables on informed table.
 func (m *Metadata) Add(table *Table) {
 	m.objectMetaTable()
 	m.objectMetaAnnotationsTable()
@@ -102,6 +103,7 @@ func (m *Metadata) Add(table *Table) {
 	table.AddBigIntFK("metadata_id", m.schema.TableName(omSuffix))
 }
 
+// NewMetadata instantiate Metadata.
 func NewMetadata(schema *Schema) *Metadata {
 	return &Metadata{schema: schema}
 }

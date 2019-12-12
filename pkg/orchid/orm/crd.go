@@ -1,5 +1,6 @@
 package orm
 
+// CRD represents the group of tables needed to store CRDs.
 type CRD struct {
 	schema *Schema // schema instance
 }
@@ -19,6 +20,7 @@ func (c *CRD) Add() {
 	c.crdTable()
 }
 
+// NewCRD instantiate CRD.
 func NewCRD(schema *Schema) *CRD {
 	return &CRD{schema: schema}
 }
