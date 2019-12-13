@@ -1,4 +1,4 @@
-package server
+package apiserver
 
 import (
 	"github.com/ghodss/yaml"

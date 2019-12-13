@@ -6,10 +6,9 @@ import (
 	"os/signal"
 
 	"github.com/go-logr/logr"
-
-	"github.com/isutton/orchid/pkg/orchid/server"
-
 	"k8s.io/klog/klogr"
+
+	"github.com/isutton/orchid/pkg/orchid"
 )
 
 // main is server entrypoint.
@@ -18,10 +17,10 @@ func main() {
 	ctx := context.TODO()
 	logger := klogr.New().WithName("orchid")
 
-	options := server.Options{
+	options := orchid.Options{
 		Address: ":8080",
 	}
-	srv := server.NewServer(logger, options)
+	srv := orchid.NewServer(logger, options)
 
 	logger.Info("Starting server")
 	if err := srv.Start(ctx); err != nil {
@@ -34,7 +33,7 @@ func main() {
 }
 
 // ShutdownOnInterrupt waits for an interrupt signal to shutdown the server.
-func ShutdownOnInterrupt(logger logr.Logger, srv *server.Server) {
+func ShutdownOnInterrupt(logger logr.Logger, srv *orchid.Server) {
 	logger = logger.WithName("shutdownOnInterrupt")
 	interruptChan := make(chan os.Signal, 1)
 	doneChan := make(chan error, 1)
