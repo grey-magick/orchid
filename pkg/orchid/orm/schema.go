@@ -38,8 +38,14 @@ func (s *Schema) TableFactory(tableName string, tablePath []string) *Table {
 	return table
 }
 
+// GetTable returns a table instance, if exists.
 func (s *Schema) GetTable(tableName string) *Table {
-	panic("implement me")
+	for _, table := range s.Tables {
+		if tableName == table.Name {
+			return table
+		}
+	}
+	return nil
 }
 
 // isRequiredProp checks for required properties by being part of required string slice.

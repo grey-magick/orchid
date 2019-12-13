@@ -21,7 +21,7 @@ const (
 // objectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
 // described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (m *Metadata) objectMetaTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omSuffix), nil)
+	table := m.schema.TableFactory(m.schema.TableName(omSuffix), []string{})
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -47,7 +47,8 @@ func (m *Metadata) objectMetaTable() {
 
 // objectMetaLabelsTable part of ObjectMeta, stores labels.
 func (m *Metadata) objectMetaLabelsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix), nil)
+	tablePath := []string{"metadata", "labels"}
+	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix), tablePath)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -58,7 +59,8 @@ func (m *Metadata) objectMetaLabelsTable() {
 
 // objectMetaAnnotationsTable part of ObjectMeta, stores annotations.
 func (m *Metadata) objectMetaAnnotationsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix), nil)
+	tablePath := []string{"metadata", "annotations"}
+	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix), tablePath)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
@@ -69,7 +71,8 @@ func (m *Metadata) objectMetaAnnotationsTable() {
 
 // objectMetaReferencesTable part of ObjectMeta, stores references.
 func (m *Metadata) objectMetaReferencesTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), nil)
+	tablePath := []string{"metadata", "ownerReferences"}
+	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), tablePath)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText})
@@ -81,7 +84,8 @@ func (m *Metadata) objectMetaReferencesTable() {
 
 // objectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
 func (m *Metadata) objectMetaManagedFieldsTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), nil)
+	tablePath := []string{"metadata", "managedFields"}
+	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), tablePath)
 	table.AddBigIntPK()
 
 	table.AddColumn(&Column{Name: "manager", Type: PgTypeText})

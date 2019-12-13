@@ -17,7 +17,7 @@ func (c *CRD) crdTable() {
 
 // namespaceTable create table to store namespaces.
 func (c *CRD) namespaceTable() {
-	table := c.schema.TableFactory(c.schema.TableName("namespace"))
+	table := c.schema.TableFactory(c.schema.TableName("namespace"), []string{})
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{Name: "namespace", Type: PgTypeText, NotNull: true})
