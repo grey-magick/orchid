@@ -34,11 +34,8 @@ func NewServer(logger logr.Logger, options Options) *Server {
 	}
 
 	router := mux.NewRouter()
-	crdService, err := apiserver.NewCRDService(pgOrm)
-	if err != nil {
-		panic(err)
-	}
-	AddAPIResourceHandler(logger.WithName("handler"), crdService, router)
+	// model := apiserver.NewModel(pgOrm)
+	// AddAPIResourceHandler(logger.WithName("handler"), model, router)
 
 	return &Server{
 		Logger: logger.WithName("server"),
@@ -72,6 +69,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // AddAPIResourceHandler registers the API server routes in router.
-func AddAPIResourceHandler(logger logr.Logger, crdService apiserver.CRDService, router *mux.Router) {
+func AddAPIResourceHandler(logger logr.Logger, crdService apiserver.Model, router *mux.Router) {
 	// NewAPIResourceHandler(logger, crdService).Register(router)
 }

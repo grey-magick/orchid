@@ -67,12 +67,12 @@ func Test_object_UnmarshalJSON(t *testing.T) {
 	}{
 		{
 			"cr",
-			args{data: readAsset("cr.yaml")},
+			args{data: readAsset("../../../test/crds/cr.yaml")},
 			false,
 		},
 		{
 			"crd",
-			args{data: readAsset("crd.yaml")},
+			args{data: readAsset("../../../test/crds/crd.yaml")},
 			false,
 		},
 	}
