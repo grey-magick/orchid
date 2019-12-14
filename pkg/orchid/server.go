@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/mux"
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/isutton/orchid/pkg/orchid/apiserver"
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
@@ -69,6 +68,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // AddAPIResourceHandler registers the API server routes in router.
-func AddAPIResourceHandler(logger logr.Logger, crdService apiserver.Model, router *mux.Router) {
-	// NewAPIResourceHandler(logger, crdService).Register(router)
-}
+// func AddAPIResourceHandler(logger logr.Logger, crdService apiserver.Model, router *mux.Router) {
+// 	// NewAPIResourceHandler(logger, crdService).Register(router)
+// }

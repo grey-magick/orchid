@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/isutton/orchid/pkg/orchid/repository"
 	"github.com/isutton/orchid/pkg/orchid/runtime"
 )
 
@@ -29,7 +30,7 @@ var (
 
 type APIResourceHandler struct {
 	// CRDService is responsible for managing CRDs.
-	CRDService Model
+	CRDService repository.Repository
 	Logger     logr.Logger
 }
 
@@ -140,7 +141,7 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
-func NewAPIResourceHandler(logger logr.Logger, crdService Model) *APIResourceHandler {
+func NewAPIResourceHandler(logger logr.Logger, crdService repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
 		Logger:     logger,
 		CRDService: crdService,
