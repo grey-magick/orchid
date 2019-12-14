@@ -8,6 +8,7 @@ COMMON_FLAGS ?= -v -mod=vendor
 
 TEST_TIMEOUT ?= 3m
 TEST_FLAGS ?= -failfast -timeout=$(TEST_TIMEOUT)
+TEST_EXTRA_FLAGS ?=
 
 OUTPUT_DIR ?= build
 
@@ -46,7 +47,8 @@ test: test-unit test-e2e
 
 # run unit tests
 test-unit: prepare
-	go test $(COMMON_FLAGS) $(TEST_FLAGS) -coverprofile=$(COVERAGE_DIR)/coverage-unit.txt ./...
+	go test $(COMMON_FLAGS) $(TEST_FLAGS) $(TEST_EXTRA_FLAGS) \
+		-coverprofile=$(COVERAGE_DIR)/coverage-unit.txt ./...
 
 # run end-to-end tests
 test-e2e:
