@@ -9,12 +9,13 @@ import (
 )
 
 func TestSQL_New(t *testing.T) {
-	const expectedAmountOfTables = 9
-
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema("cr")
+
 	err := schema.GenerateCR(&openAPIV3Schema)
 	assert.NoError(t, err)
+
+	expectedAmountOfTables := len(schema.Tables)
 
 	sqlLib := NewSQL(schema)
 
@@ -32,8 +33,8 @@ func TestSQL_New(t *testing.T) {
 		insertStmts := sqlLib.Insert()
 		assert.Len(t, insertStmts, expectedAmountOfTables)
 
-		for name, statement := range insertStmts {
-			t.Logf("table='%s', insert='%s'", name, statement)
+		for _, statement := range insertStmts {
+			t.Logf("insert='%#v'", statement)
 			assert.Contains(t, statement, "insert into")
 		}
 	})

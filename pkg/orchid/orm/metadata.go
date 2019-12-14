@@ -24,25 +24,29 @@ func (m *Metadata) objectMetaTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omSuffix), []string{})
 	table.AddSerialPK()
 
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "generate_name", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "namespace", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "self_link", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "uid", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "resource_version", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "generation", Type: PgTypeBigInt})
-	table.AddColumn(&Column{Name: "creation_timestamp", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "deletion_timestamp", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "deletion_grace_period_seconds", Type: PgTypeBigInt})
+	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString, NotNull: true})
+	table.AddColumn(&Column{Name: "generateName", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "namespace", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "selfLink", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "uid", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "resourceVersion", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "generation", Type: PgTypeBigInt, OriginalType: JSTypeInteger})
+	table.AddColumn(&Column{Name: "creationTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "deletionTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{
+		Name:         "deletion_grace_period_seconds",
+		Type:         PgTypeBigInt,
+		OriginalType: JSTypeInteger,
+	})
 
-	table.AddBigIntFK("labels_id", m.schema.TableName(omLabelsSuffix), false)
-	table.AddBigIntFK("annotations_id", m.schema.TableName(omAnnotationsSuffix), false)
-	table.AddBigIntFK("owner_references_id", m.schema.TableName(omOwnerReferencesSuffix), false)
+	table.AddBigIntFK("labels", m.schema.TableName(omLabelsSuffix), false)
+	table.AddBigIntFK("annotations", m.schema.TableName(omAnnotationsSuffix), false)
+	table.AddBigIntFK("ownerReferences", m.schema.TableName(omOwnerReferencesSuffix), false)
 
-	table.AddColumn(&Column{Name: "finalizers", Type: PgTypeTextArray})
-	table.AddColumn(&Column{Name: "cluster_name", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "finalizers", Type: PgTypeTextArray, OriginalType: JSTypeArray})
+	table.AddColumn(&Column{Name: "clusterName", Type: PgTypeText, OriginalType: JSTypeString})
 
-	table.AddBigIntFK("managed_fields_id", m.schema.TableName(omManagedFieldsSuffix), false)
+	table.AddBigIntFK("managedFields", m.schema.TableName(omManagedFieldsSuffix), false)
 }
 
 // objectMetaLabelsTable part of ObjectMeta, stores labels.
@@ -51,10 +55,10 @@ func (m *Metadata) objectMetaLabelsTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix), tablePath)
 	table.AddBigIntPK()
 
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: "name"})
 
-	table.AddColumn(&Column{Name: "value", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "value", Type: PgTypeText, OriginalType: JSTypeString})
 }
 
 // objectMetaAnnotationsTable part of ObjectMeta, stores annotations.
@@ -63,10 +67,10 @@ func (m *Metadata) objectMetaAnnotationsTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix), tablePath)
 	table.AddBigIntPK()
 
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: "name"})
 
-	table.AddColumn(&Column{Name: "value", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "value", Type: PgTypeText, OriginalType: JSTypeString})
 }
 
 // objectMetaReferencesTable part of ObjectMeta, stores references.
@@ -75,11 +79,15 @@ func (m *Metadata) objectMetaReferencesTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), tablePath)
 	table.AddBigIntPK()
 
-	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "kind", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "controller", Type: PgTypeBoolean})
-	table.AddColumn(&Column{Name: "block_owner_deletion", Type: PgTypeBoolean})
+	table.AddColumn(&Column{Name: "apiVersion", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "kind", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "controller", Type: PgTypeBoolean, OriginalType: JSTypeBoolean})
+	table.AddColumn(&Column{
+		Name:         "block_owner_deletion",
+		Type:         PgTypeBoolean,
+		OriginalType: JSTypeBoolean,
+	})
 }
 
 // objectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
@@ -88,12 +96,12 @@ func (m *Metadata) objectMetaManagedFieldsTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), tablePath)
 	table.AddBigIntPK()
 
-	table.AddColumn(&Column{Name: "manager", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "operation", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "time", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "fields_type", Type: PgTypeText})
-	table.AddColumn(&Column{Name: "fields_v1", Type: PgTypeText})
+	table.AddColumn(&Column{Name: "manager", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "operation", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "apiVersion", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "time", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "fieldsType", Type: PgTypeText, OriginalType: JSTypeString})
+	table.AddColumn(&Column{Name: "fieldsV1", Type: PgTypeText, OriginalType: JSTypeString})
 }
 
 // Add object-meta tables on informed table.

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"strings"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
@@ -15,7 +16,8 @@ type Schema struct {
 
 // TableName append suffix on schema name.
 func (s *Schema) TableName(suffix string) string {
-	return fmt.Sprintf("%s_%s", s.Name, suffix)
+	name := strings.ReplaceAll(s.Name, ".", "_")
+	return fmt.Sprintf("%s_%s", name, suffix)
 }
 
 // prepend new tables on the beggining of the slice. Reverse order helps to deal with the creation
@@ -48,6 +50,17 @@ func (s *Schema) GetTable(tableName string) *Table {
 	return nil
 }
 
+// TablesReversed reverse list of tables in Schema.
+func (s *Schema) TablesReversed() []*Table {
+	reversed := make([]*Table, len(s.Tables))
+	copy(reversed, s.Tables)
+	for i := len(reversed)/2 - 1; i >= 0; i-- {
+		opposite := len(reversed) - 1 - i
+		reversed[i], reversed[opposite] = reversed[opposite], reversed[i]
+	}
+	return reversed
+}
+
 // isRequiredProp checks for required properties by being part of required string slice.
 func (s *Schema) isRequiredProp(name string, required []string) bool {
 	for _, requiredProp := range required {
@@ -64,7 +77,7 @@ func (s *Schema) handleObject(
 	tablePath []string,
 	name string,
 	notNull bool,
-	jsonSchema *extv1beta1.JSONSchemaProps,
+	jsonSchema extv1beta1.JSONSchemaProps,
 ) error {
 	if name == "metadata" && s.Name == table.Name {
 		metadata := NewMetadata(s)
@@ -73,8 +86,10 @@ func (s *Schema) handleObject(
 	}
 
 	relatedTableName := fmt.Sprintf("%s_%s", table.Name, name)
-	columnName := fmt.Sprintf("%s_id", name)
-	table.AddBigIntFK(columnName, relatedTableName, notNull)
+	table.AddBigIntFK(name, relatedTableName, notNull)
+
+	tablePath = append(tablePath, name)
+	table.Path = tablePath
 
 	return s.jsonSchemaParser(
 		relatedTableName, tablePath, jsonSchema.Properties, jsonSchema.Required)
@@ -85,7 +100,7 @@ func (s *Schema) handleArray(
 	table *Table,
 	name string,
 	notNull bool,
-	jsonSchema *extv1beta1.JSONSchemaProps,
+	jsonSchema extv1beta1.JSONSchemaProps,
 ) error {
 	itemsSchema := jsonSchema.Items.Schema
 	column, err := NewColumnArray(
@@ -107,14 +122,9 @@ func (s *Schema) handleColumn(
 	table *Table,
 	name string,
 	notNull bool,
-	jsonSchema *extv1beta1.JSONSchemaProps,
+	jsonSchema extv1beta1.JSONSchemaProps,
 ) error {
-	column, err := NewColumn(
-		name,
-		jsonSchema.Type,
-		jsonSchema.Format,
-		notNull,
-	)
+	column, err := NewColumn(name, jsonSchema.Type, jsonSchema.Format, notNull)
 	if err != nil {
 		return err
 	}
@@ -131,8 +141,6 @@ func (s *Schema) jsonSchemaParser(
 	required []string,
 ) error {
 	table := s.TableFactory(tableName, tablePath)
-	tablePath = append(tablePath, tableName)
-
 	table.AddSerialPK()
 
 	for name, jsonSchema := range properties {
@@ -140,24 +148,24 @@ func (s *Schema) jsonSchemaParser(
 		notNull := s.isRequiredProp(name, required)
 
 		switch jsonSchema.Type {
-		case "object":
-			if err := s.handleObject(table, tablePath, name, notNull, &jsonSchema); err != nil {
+		case JSTypeObject:
+			if err := s.handleObject(table, tablePath, name, notNull, jsonSchema); err != nil {
 				return err
 			}
-		case "array":
-			if err := s.handleArray(table, name, notNull, &jsonSchema); err != nil {
+		case JSTypeArray:
+			if err := s.handleArray(table, name, notNull, jsonSchema); err != nil {
 				return err
 			}
-		case "string":
-			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
+		case JSTypeString:
+			if err := s.handleColumn(table, name, notNull, jsonSchema); err != nil {
 				return err
 			}
-		case "integer":
-			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
+		case JSTypeInteger:
+			if err := s.handleColumn(table, name, notNull, jsonSchema); err != nil {
 				return err
 			}
-		case "long":
-			if err := s.handleColumn(table, name, notNull, &jsonSchema); err != nil {
+		case JSTypeNumber:
+			if err := s.handleColumn(table, name, notNull, jsonSchema); err != nil {
 				return err
 			}
 		default:
@@ -178,17 +186,6 @@ func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
 func (s *Schema) GenerateCRD() {
 	crd := NewCRD(s)
 	crd.Add()
-}
-
-// TablesReversed reverse list of tables in Schema.
-func (s *Schema) TablesReversed() []*Table {
-	reversed := make([]*Table, len(s.Tables))
-	copy(reversed, s.Tables)
-	for i := len(reversed)/2 - 1; i >= 0; i-- {
-		opposite := len(reversed) - 1 - i
-		reversed[i], reversed[opposite] = reversed[opposite], reversed[i]
-	}
-	return reversed
 }
 
 // NewSchema instantiate new Schema.

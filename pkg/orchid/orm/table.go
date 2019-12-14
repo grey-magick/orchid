@@ -23,6 +23,35 @@ func (t *Table) GetColumn(name string) *Column {
 	return nil
 }
 
+// IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
+func (t *Table) IsPrimaryKey(columnName string) bool {
+	for _, constraint := range t.Constraints {
+		if constraint.ColumnName == columnName && constraint.Type == PgConstraintPK {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Table) IsForeignKey(columnName string) bool {
+	for _, constraint := range t.Constraints {
+		if constraint.ColumnName == columnName && constraint.Type == PgConstraintFK {
+			return true
+		}
+	}
+	return false
+}
+
+// ForeignKeyTable in case of columnName being a foreign key, returning the table name it points to.
+func (t *Table) ForeignKeyTable(columnName string) string {
+	for _, constraint := range t.Constraints {
+		if constraint.ColumnName == columnName && constraint.Type == PgConstraintFK {
+			return constraint.RelatedTableName
+		}
+	}
+	return ""
+}
+
 // AddConstraint add a new constraint.
 func (t *Table) AddConstraint(constraint *Constraint) {
 	t.Constraints = append(t.Constraints, constraint)
@@ -44,7 +73,12 @@ func (t *Table) AddBigIntPK() {
 
 // AddForeignKey adds a new column with foreign-key constraint.
 func (t *Table) AddBigIntFK(columnName, relatedTableName string, notNull bool) {
-	t.AddColumn(&Column{Name: columnName, Type: PgTypeBigInt, NotNull: notNull})
+	t.AddColumn(&Column{
+		Name:         columnName,
+		Type:         PgTypeBigInt,
+		OriginalType: JSTypeObject,
+		NotNull:      notNull,
+	})
 	t.AddConstraint(&Constraint{
 		Type:              PgConstraintFK,
 		ColumnName:        columnName,
@@ -62,6 +96,9 @@ func (t *Table) AddColumn(column *Column) {
 func (t *Table) ColumNames() []string {
 	names := []string{}
 	for _, column := range t.Columns {
+		if column.Type == PgTypeSerial8 {
+			continue
+		}
 		names = append(names, column.Name)
 	}
 	return names

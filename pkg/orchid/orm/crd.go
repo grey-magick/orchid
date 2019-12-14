@@ -5,27 +5,35 @@ type CRD struct {
 	schema *Schema // schema instance
 }
 
+const CRDRawDataColumn = "data"
+
 // crdTable create a special table to store CRDs.
 func (c *CRD) crdTable() {
 	table := c.schema.TableFactory(c.schema.TableName("crd"), []string{})
 	table.AddSerialPK()
 
-	table.AddColumn(&Column{Name: "api_version", Type: PgTypeText, NotNull: true})
-	table.AddColumn(&Column{Name: "kind", Type: PgTypeText, NotNull: true})
-	table.AddColumn(&Column{Name: "data", Type: PgTypeJSONB, NotNull: true})
-}
-
-// namespaceTable create table to store namespaces.
-func (c *CRD) namespaceTable() {
-	table := c.schema.TableFactory(c.schema.TableName("namespace"), []string{})
-	table.AddSerialPK()
-
-	table.AddColumn(&Column{Name: "namespace", Type: PgTypeText, NotNull: true})
+	table.AddColumn(&Column{
+		Name:         "apiVersion",
+		Type:         PgTypeText,
+		OriginalType: JSTypeString,
+		NotNull:      true,
+	})
+	table.AddColumn(&Column{
+		Name:         "kind",
+		Type:         PgTypeText,
+		OriginalType: JSTypeString,
+		NotNull:      true,
+	})
+	table.AddColumn(&Column{
+		Name:         CRDRawDataColumn,
+		Type:         PgTypeJSONB,
+		OriginalType: JSTypeString,
+		NotNull:      true,
+	})
 }
 
 // Add tables belonging to CRD schema.
 func (c *CRD) Add() {
-	c.namespaceTable()
 	c.crdTable()
 }
 

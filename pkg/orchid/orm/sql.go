@@ -19,18 +19,19 @@ func (s *SQL) valuesPlaceholders(amount int) []string {
 	return placeholders
 }
 
-// Insert generates a map of inserts per table.
-func (s *SQL) Insert() map[string]string {
-	inserts := map[string]string{}
+// Insert generates a slice of inserts following the same tables sequence. Inserts carry "returning"
+// therefore should always return "id" column value.
+func (s *SQL) Insert() []string {
+	inserts := []string{}
 	for _, table := range s.schema.Tables {
 		columnNames := table.ColumNames()
 		insert := fmt.Sprintf(
-			"insert into %s (%s) values (%s)",
+			"insert into %s (%s) values (%s) returning id",
 			table.Name,
 			strings.Join(columnNames, ", "),
 			strings.Join(s.valuesPlaceholders(len(columnNames)), ", "),
 		)
-		inserts[table.Name] = insert
+		inserts = append(inserts, insert)
 	}
 	return inserts
 }
