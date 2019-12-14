@@ -22,6 +22,7 @@ func (c *Column) String() string {
 	return fmt.Sprintf("%s %s %s", c.Name, c.Type, notNull)
 }
 
+// Null returns a null representation for column.
 func (c *Column) Null() (interface{}, error) {
 	switch c.Type {
 	case PgTypeBigInt:
@@ -36,6 +37,10 @@ func (c *Column) Null() (interface{}, error) {
 		return sql.NullString{}, nil
 	case PgTypeReal:
 		return sql.NullFloat64{}, nil
+	case PgTypeText:
+		return sql.NullString{}, nil
+	case PgTypeTextArray:
+		return sql.NullString{}, nil
 	}
 	return nil, fmt.Errorf("unable to create a null presentation for type '%s'", c.Type)
 }

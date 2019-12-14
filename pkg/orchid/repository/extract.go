@@ -40,7 +40,7 @@ func nestedBool(obj map[string]interface{}, fieldPath []string) (bool, error) {
 func nestedString(obj map[string]interface{}, fieldPath []string) (string, error) {
 	str, found, err := unstructured.NestedString(obj, fieldPath...)
 	if !found {
-		return "", fmt.Errorf("unable to find names at '%#v'", fieldPath)
+		return "", fmt.Errorf("unable to find string at '%#v'", fieldPath)
 	}
 	if err != nil {
 		return "", err

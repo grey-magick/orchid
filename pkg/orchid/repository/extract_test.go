@@ -14,7 +14,8 @@ func TestExtract_extract(t *testing.T) {
 	cr, err := mocks.UnstructuredCRMock()
 	require.NoError(t, err)
 
-	data, err := extract(cr.Object, orm.JSTypeString, []string{"spec", "simple"})
+	fieldPath := []string{"spec", "simple"}
+	data, err := extract(cr.Object, orm.JSTypeString, fieldPath)
 	require.NoError(t, err)
 	assert.NotNil(t, data)
 	assert.Equal(t, "11", data)

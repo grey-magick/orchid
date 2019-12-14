@@ -122,7 +122,7 @@ func (r *Repository) prepareCR(
 		columnFieldPath := append(table.Path, column.Name)
 		data, err := extract(u.Object, column.OriginalType, columnFieldPath)
 		if err != nil {
-			if column.NotNull {
+			if !column.NotNull {
 				if data, err = column.Null(); err != nil {
 					return nil, err
 				}
