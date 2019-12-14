@@ -87,10 +87,7 @@ func (s *Schema) handleObject(
 
 	relatedTableName := fmt.Sprintf("%s_%s", table.Name, name)
 	table.AddBigIntFK(name, relatedTableName, notNull)
-
 	tablePath = append(tablePath, name)
-	table.Path = tablePath
-
 	return s.jsonSchemaParser(
 		relatedTableName, tablePath, jsonSchema.Properties, jsonSchema.Required)
 }

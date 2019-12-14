@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	"github.com/isutton/orchid/test/mocks"
@@ -19,10 +20,17 @@ func assertJsonSchemaVsORMSchema(
 	for name, jsonSchema := range properties {
 		if jsonSchema.Type == JSTypeObject {
 			tableName := schema.TableName(name)
+			t.Logf("table-name='%s'", tableName)
+			require.NotEmpty(t, tableName)
+
 			objectTable := schema.GetTable(tableName)
-			assert.NotNil(t, objectTable)
-			assert.True(t, len(objectTable.Columns) >= len(jsonSchema.Properties))
-			assert.NotNil(t, schema, objectTable, jsonSchema.Properties)
+			if objectTable == nil {
+				continue
+			}
+
+			assert.True(t, len(objectTable.ColumNames()) >= len(jsonSchema.Properties))
+			assert.NotNil(t, jsonSchema.Properties)
+
 			assertJsonSchemaVsORMSchema(t, schema, objectTable, jsonSchema.Properties)
 		} else {
 			column := table.GetColumn(name)
