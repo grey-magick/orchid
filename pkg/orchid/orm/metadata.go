@@ -7,21 +7,21 @@ type Metadata struct {
 
 const (
 	// omSuffix ObjectMeta
-	omSuffix = "object_meta"
+	omSuffix = "objectMeta"
 	// omLabelsSuffix ObjectMeta.Labels
-	omLabelsSuffix = "object_meta_labels"
+	omLabelsSuffix = "objectMetaLabels"
 	// omAnnotationsSuffix ObjectMeta.Annotations
-	omAnnotationsSuffix = "object_meta_annotations"
+	omAnnotationsSuffix = "objectMetaAnnotations"
 	// omOwnerReferencesSuffix ObjectMeta.OwnerReferences
-	omOwnerReferencesSuffix = "object_meta_owner_references"
+	omOwnerReferencesSuffix = "objectMetaOwnerReferences"
 	// omManagedFieldsSuffix ObjectMeta.ManagedFields
-	omManagedFieldsSuffix = "object_meta_managed_fields"
+	omManagedFieldsSuffix = "objectMetaManagedFields"
 )
 
 // objectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
 // described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
 func (m *Metadata) objectMetaTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omSuffix), []string{})
+	table := m.schema.TableFactory(m.schema.TableName(omSuffix), []string{"metadata"})
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString, NotNull: true})
@@ -33,20 +33,17 @@ func (m *Metadata) objectMetaTable() {
 	table.AddColumn(&Column{Name: "generation", Type: PgTypeBigInt, OriginalType: JSTypeInteger})
 	table.AddColumn(&Column{Name: "creationTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddColumn(&Column{Name: "deletionTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{
-		Name:         "deletion_grace_period_seconds",
-		Type:         PgTypeBigInt,
-		OriginalType: JSTypeInteger,
-	})
+	table.AddColumn(
+		&Column{Name: "deletionGracePeriodSeconds", Type: PgTypeBigInt, OriginalType: JSTypeInteger})
 
-	table.AddBigIntFK("labels", m.schema.TableName(omLabelsSuffix), false)
-	table.AddBigIntFK("annotations", m.schema.TableName(omAnnotationsSuffix), false)
-	table.AddBigIntFK("ownerReferences", m.schema.TableName(omOwnerReferencesSuffix), false)
+	// table.AddBigIntFK("labels", m.schema.TableName(omLabelsSuffix), false)
+	// table.AddBigIntFK("annotations", m.schema.TableName(omAnnotationsSuffix), false)
+	// table.AddBigIntFK("ownerReferences", m.schema.TableName(omOwnerReferencesSuffix), false)
 
 	table.AddColumn(&Column{Name: "finalizers", Type: PgTypeTextArray, OriginalType: JSTypeArray})
 	table.AddColumn(&Column{Name: "clusterName", Type: PgTypeText, OriginalType: JSTypeString})
 
-	table.AddBigIntFK("managedFields", m.schema.TableName(omManagedFieldsSuffix), false)
+	// table.AddBigIntFK("managedFields", m.schema.TableName(omManagedFieldsSuffix), false)
 }
 
 // objectMetaLabelsTable part of ObjectMeta, stores labels.
@@ -73,8 +70,8 @@ func (m *Metadata) objectMetaAnnotationsTable() {
 	table.AddColumn(&Column{Name: "value", Type: PgTypeText, OriginalType: JSTypeString})
 }
 
-// objectMetaReferencesTable part of ObjectMeta, stores references.
-func (m *Metadata) objectMetaReferencesTable() {
+// objectMetaOwnerReferencesTable part of ObjectMeta, stores references.
+func (m *Metadata) objectMetaOwnerReferencesTable() {
 	tablePath := []string{"metadata", "ownerReferences"}
 	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), tablePath)
 	table.AddBigIntPK()
@@ -96,7 +93,7 @@ func (m *Metadata) objectMetaManagedFieldsTable() {
 	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), tablePath)
 	table.AddBigIntPK()
 
-	table.AddColumn(&Column{Name: "manager", Type: PgTypeText, OriginalType: JSTypeString})
+	// table.AddColumn(&Column{Name: "manager", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddColumn(&Column{Name: "operation", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddColumn(&Column{Name: "apiVersion", Type: PgTypeText, OriginalType: JSTypeString})
 	table.AddColumn(&Column{Name: "time", Type: PgTypeText, OriginalType: JSTypeString})
@@ -107,10 +104,10 @@ func (m *Metadata) objectMetaManagedFieldsTable() {
 // Add object-meta tables on informed table.
 func (m *Metadata) Add(table *Table) {
 	m.objectMetaTable()
-	m.objectMetaAnnotationsTable()
-	m.objectMetaLabelsTable()
-	m.objectMetaManagedFieldsTable()
-	m.objectMetaReferencesTable()
+	// m.objectMetaAnnotationsTable()
+	// m.objectMetaLabelsTable()
+	// m.objectMetaManagedFieldsTable()
+	// m.objectMetaOwnerReferencesTable()
 
 	table.AddBigIntFK("metadata_id", m.schema.TableName(omSuffix), true)
 }
