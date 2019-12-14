@@ -4,7 +4,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -28,15 +27,9 @@ var (
 	examplesGroupVersion = examplesGroup + "/" + examplesVersion
 )
 
-// CRDService manages CRDs.
-type CRDService interface {
-	// Create registers a CRD.
-	Create(object *v1beta1.CustomResourceDefinition) error
-}
-
 type APIResourceHandler struct {
 	// CRDService is responsible for managing CRDs.
-	CRDService CRDService
+	CRDService Model
 	Logger     logr.Logger
 }
 
@@ -100,18 +93,18 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8srunt
 		panic(err)
 	}
 
-	if isCustomResourceDefinition(obj) {
-		// create all storage resources for this new object.
-		var crd *v1beta1.CustomResourceDefinition
-		err := yaml.Unmarshal(body, crd)
-		if err != nil {
-			panic(err)
-		}
-		err = h.CRDService.Create(crd)
-		if err != nil {
-			panic(err)
-		}
-	}
+	// if isCustomResourceDefinition(obj) {
+	// 	// create all storage resources for this new object.
+	// 	var crd *v1beta1.CustomResourceDefinition
+	// 	err := yaml.Unmarshal(body, crd)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	err = h.CRDService.Create(crd)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	return obj
 }
@@ -147,7 +140,7 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
-func NewAPIResourceHandler(logger logr.Logger, crdService CRDService) *APIResourceHandler {
+func NewAPIResourceHandler(logger logr.Logger, crdService Model) *APIResourceHandler {
 	return &APIResourceHandler{
 		Logger:     logger,
 		CRDService: crdService,
