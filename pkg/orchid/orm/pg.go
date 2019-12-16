@@ -22,6 +22,8 @@ const (
 // jsonSchemaFormatToPg based on json-schema format, return database type.
 func jsonSchemaFormatToPg(format string) string {
 	switch format {
+	case "date-time":
+		return PgTypeText
 	case "int32":
 		return PgTypeInt
 	case "int64":

@@ -15,11 +15,11 @@ type Column struct {
 
 // String print out column and type.
 func (c *Column) String() string {
-	var notNull string
+	statement := fmt.Sprintf("%s %s", c.Name, c.Type)
 	if c.NotNull {
-		notNull = "not null"
+		statement = fmt.Sprintf("%s not null", statement)
 	}
-	return fmt.Sprintf("%s %s %s", c.Name, c.Type, notNull)
+	return statement
 }
 
 // Null returns a null representation for column.
