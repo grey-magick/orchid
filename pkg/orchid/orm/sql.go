@@ -67,14 +67,18 @@ func (s *SQL) Select() string {
 		strings.Join(columns, ", "), strings.Join(from, ", "), strings.Join(where, " AND "))
 }
 
-// CreateTables return the statements needed to create Schema tables, leaving primary Schema table
-// as last.
+// CreateTables return the statements needed to create table and add foreign keys.
 func (s *SQL) CreateTables() []string {
-	statements := []string{}
+	createTables := []string{}
+	alterTables := []string{}
 	for _, table := range s.schema.Tables {
-		statements = append(statements, table.String())
+		createTable, alterTable := table.String()
+		createTables = append(createTables, createTable)
+		if alterTable != "" {
+			alterTables = append(alterTables, alterTable)
+		}
 	}
-	return statements
+	return append(createTables, alterTables...)
 }
 
 // NewSQL instantiate an SQL.

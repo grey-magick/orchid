@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,11 +22,15 @@ func TestSQL_New(t *testing.T) {
 
 	t.Run("CreateTables", func(t *testing.T) {
 		createTableStmts := sqlLib.CreateTables()
-		assert.Len(t, createTableStmts, expectedAmountOfTables)
+		assert.True(t, len(createTableStmts) >= expectedAmountOfTables)
 
 		for _, statement := range createTableStmts {
 			t.Logf("%s;", statement)
-			assert.Contains(t, statement, "create table")
+			assert.True(
+				t,
+				strings.Contains(statement, "create table") ||
+					strings.Contains(statement, "alter table"),
+			)
 		}
 	})
 
