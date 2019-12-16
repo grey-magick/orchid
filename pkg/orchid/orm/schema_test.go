@@ -17,6 +17,10 @@ func assertJsonSchemaVsORMSchema(
 	properties map[string]extv1beta1.JSONSchemaProps,
 ) {
 	t.Logf("Inspecting table '%s' with '%d' properties", table.Name, len(properties))
+
+	// expects to find more than one column, aside of PK
+	assert.True(t, len(table.ColumNames()) > 0)
+
 	for name, jsonSchema := range properties {
 		if jsonSchema.Type == JSTypeObject {
 			tableName := schema.TableName(name)
@@ -40,19 +44,19 @@ func assertJsonSchemaVsORMSchema(
 }
 
 func TestSchema_CR(t *testing.T) {
-	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
+	apiSchema := mocks.OpenAPIV3SchemaMock()
 	schemaName := "cr"
 	schema := NewSchema(schemaName)
 
 	t.Run("GenerateCR", func(t *testing.T) {
-		err := schema.GenerateCR(&openAPIV3Schema)
+		err := schema.GenerateCR(&apiSchema)
 
 		assert.NoError(t, err)
 		assert.True(t, len(schema.Tables) > 1)
 
 		table := schema.GetTable(schemaName)
 		assert.NotNil(t, table)
-		assertJsonSchemaVsORMSchema(t, schema, table, openAPIV3Schema.Properties)
+		assertJsonSchemaVsORMSchema(t, schema, table, apiSchema.Properties)
 	})
 
 	t.Run("TablesReversed", func(t *testing.T) {
@@ -69,9 +73,24 @@ func TestSchema_CRD(t *testing.T) {
 
 	schema := NewSchema("crd")
 
-	t.Run("GenerateCRD", func(t *testing.T) {
-		schema.GenerateCRD()
+	schema.GenerateCRD()
+	assert.Len(t, schema.Tables, expectedAmountOfTables)
+}
 
-		assert.Len(t, schema.Tables, expectedAmountOfTables)
+func TestSchema_ObjectMeta(t *testing.T) {
+	schemaName := "metadata"
+	apiSchema := jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		"metadata": jsonSchemaProps(JSTypeObject, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
 	})
+
+	schema := NewSchema(schemaName)
+	err := schema.GenerateCR(&apiSchema)
+
+	require.NoError(t, err)
+	assert.True(t, len(schema.Tables) > 1)
+
+	table := schema.GetTable(schemaName)
+	assert.NotNil(t, table)
+
+	assertJsonSchemaVsORMSchema(t, schema, table, apiSchema.Properties)
 }
