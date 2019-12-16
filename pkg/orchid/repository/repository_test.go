@@ -28,7 +28,7 @@ func TestRepository_New(t *testing.T) {
 		require.NoError(t, err)
 
 		err = model.Create(crd)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Create-CR", func(t *testing.T) {
