@@ -72,7 +72,12 @@ func (t *Table) AddBigIntPK() {
 }
 
 // AddForeignKey adds a new column with foreign-key constraint.
-func (t *Table) AddBigIntFK(columnName, relatedTableName string, notNull bool) {
+func (t *Table) AddBigIntFK(
+	columnName string,
+	relatedTableName string,
+	relatedColumnName string,
+	notNull bool,
+) {
 	t.AddColumn(&Column{
 		Name:         columnName,
 		Type:         PgTypeBigInt,
@@ -83,7 +88,7 @@ func (t *Table) AddBigIntFK(columnName, relatedTableName string, notNull bool) {
 		Type:              PgConstraintFK,
 		ColumnName:        columnName,
 		RelatedTableName:  relatedTableName,
-		RelatedColumnName: "id",
+		RelatedColumnName: relatedColumnName,
 	})
 }
 
@@ -104,18 +109,33 @@ func (t *Table) ColumNames() []string {
 	return names
 }
 
-// String print out table creation SQL statement.
-func (t *Table) String() string {
+// String print out table creation SQL statement, and alter-table statement to include foreign keys
+// later in the process.
+func (t *Table) String() (string, string) {
 	columns := []string{}
 	for _, column := range t.Columns {
 		columns = append(columns, column.String())
 	}
+
+	foreignKeys := []string{}
 	constrains := []string{}
 	for _, constraint := range t.Constraints {
-		constrains = append(constrains, constraint.String())
+		if constraint.Type == PgConstraintFK {
+			foreignKeys = append(foreignKeys, constraint.String())
+		} else {
+			constrains = append(constrains, constraint.String())
+		}
 	}
-	return fmt.Sprintf("create table if not exists %s (%s, %s)",
+
+	createTable := fmt.Sprintf("create table if not exists %s (%s, %s)",
 		t.Name, strings.Join(columns, ", "), strings.Join(constrains, ", "))
+	if len(foreignKeys) == 0 {
+		return createTable, ""
+	}
+
+	alterTable := fmt.Sprintf("alter table %s add %s", t.Name, strings.Join(foreignKeys, ", add "))
+	return createTable, alterTable
+
 }
 
 // NewTable instantiate a new Table.

@@ -33,7 +33,7 @@ func TestTable_New(t *testing.T) {
 
 	t.Run("AddBigIntFK", func(t *testing.T) {
 		table := NewTable("test", nil)
-		table.AddBigIntFK("column", "onTable", false)
+		table.AddBigIntFK("column", "onTable", "id", false)
 
 		assert.Len(t, table.Columns, 1)
 		assert.Equal(t, PgTypeBigInt, table.Columns[0].Type)
@@ -46,14 +46,15 @@ func TestTable_New(t *testing.T) {
 
 	t.Run("ColumnNames", func(t *testing.T) {
 		table := NewTable("test", nil)
-		table.AddBigIntFK("column", "onTable", true)
+		table.AddBigIntFK("column", "onTable", "id", true)
 
 		assert.Equal(t, []string{"column"}, table.ColumNames())
 	})
 
 	t.Run("String", func(t *testing.T) {
 		table := NewTable("test", nil)
+		createTable, _ := table.String()
 
-		assert.NotEmpty(t, table.String())
+		assert.NotEmpty(t, createTable)
 	})
 }
