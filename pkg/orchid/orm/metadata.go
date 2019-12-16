@@ -1,118 +1,101 @@
 package orm
 
-// Metadata represents the extra tables needed for CRD metadata.
-type Metadata struct {
-	schema *Schema // schema instance
-}
-
-const (
-	// omSuffix ObjectMeta
-	omSuffix = "objectMeta"
-	// omLabelsSuffix ObjectMeta.Labels
-	omLabelsSuffix = "objectMetaLabels"
-	// omAnnotationsSuffix ObjectMeta.Annotations
-	omAnnotationsSuffix = "objectMetaAnnotations"
-	// omOwnerReferencesSuffix ObjectMeta.OwnerReferences
-	omOwnerReferencesSuffix = "objectMetaOwnerReferences"
-	// omManagedFieldsSuffix ObjectMeta.ManagedFields
-	omManagedFieldsSuffix = "objectMetaManagedFields"
+import (
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
-// objectMetaTable create the table refering to ObjectMeta CR entry. The ObjectMeta type is
-// described at https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta.
-func (m *Metadata) objectMetaTable() {
-	table := m.schema.TableFactory(m.schema.TableName(omSuffix), []string{"metadata"})
-	table.AddSerialPK()
+var (
+	jsPropString   = jsonSchemaProps(JSTypeString, "", nil, nil, nil)
+	jsPropInt64    = jsonSchemaProps(JSTypeInteger, "int64", nil, nil, nil)
+	jsPropDateTime = jsonSchemaProps(JSTypeString, "date-time", nil, nil, nil)
+	jsPropBoolean  = jsonSchemaProps(JSTypeBoolean, "", nil, nil, nil)
+)
 
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString, NotNull: true})
-	table.AddColumn(&Column{Name: "generateName", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "namespace", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "selfLink", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "uid", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "resourceVersion", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "generation", Type: PgTypeBigInt, OriginalType: JSTypeInteger})
-	table.AddColumn(&Column{Name: "creationTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "deletionTimestamp", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(
-		&Column{Name: "deletionGracePeriodSeconds", Type: PgTypeBigInt, OriginalType: JSTypeInteger})
-
-	// table.AddBigIntFK("labels", m.schema.TableName(omLabelsSuffix), false)
-	// table.AddBigIntFK("annotations", m.schema.TableName(omAnnotationsSuffix), false)
-	// table.AddBigIntFK("ownerReferences", m.schema.TableName(omOwnerReferencesSuffix), false)
-
-	table.AddColumn(&Column{Name: "finalizers", Type: PgTypeTextArray, OriginalType: JSTypeArray})
-	table.AddColumn(&Column{Name: "clusterName", Type: PgTypeText, OriginalType: JSTypeString})
-
-	// table.AddBigIntFK("managedFields", m.schema.TableName(omManagedFieldsSuffix), false)
+// jsonSchemaProps creates a json-schema object skeleton.
+func jsonSchemaProps(
+	jsType string,
+	format string,
+	required []string,
+	items *extv1beta1.JSONSchemaPropsOrArray,
+	properties map[string]extv1beta1.JSONSchemaProps,
+) extv1beta1.JSONSchemaProps {
+	return extv1beta1.JSONSchemaProps{
+		Type:       jsType,
+		Format:     format,
+		Required:   required,
+		Items:      items,
+		Properties: properties,
+	}
 }
 
-// objectMetaLabelsTable part of ObjectMeta, stores labels.
-func (m *Metadata) objectMetaLabelsTable() {
-	tablePath := []string{"metadata", "labels"}
-	table := m.schema.TableFactory(m.schema.TableName(omLabelsSuffix), tablePath)
-	table.AddBigIntPK()
-
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: "name"})
-
-	table.AddColumn(&Column{Name: "value", Type: PgTypeText, OriginalType: JSTypeString})
+// jsonSchemaPropsOrArray creates a JSONSchemaPropsOrArray skeleton based on properties.
+func jsonSchemaPropsOrArray(props extv1beta1.JSONSchemaProps) *extv1beta1.JSONSchemaPropsOrArray {
+	return &extv1beta1.JSONSchemaPropsOrArray{Schema: &props}
 }
 
-// objectMetaAnnotationsTable part of ObjectMeta, stores annotations.
-func (m *Metadata) objectMetaAnnotationsTable() {
-	tablePath := []string{"metadata", "annotations"}
-	table := m.schema.TableFactory(m.schema.TableName(omAnnotationsSuffix), tablePath)
-	table.AddBigIntPK()
-
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: "name"})
-
-	table.AddColumn(&Column{Name: "value", Type: PgTypeText, OriginalType: JSTypeString})
+// objectMetaStringKV creates a key-value entry.
+func objectMetaStringKV() extv1beta1.JSONSchemaProps {
+	return extv1beta1.JSONSchemaProps{
+		Type:                 JSTypeObject,
+		AdditionalProperties: &extv1beta1.JSONSchemaPropsOrBool{Schema: &jsPropString},
+	}
 }
 
-// objectMetaOwnerReferencesTable part of ObjectMeta, stores references.
-func (m *Metadata) objectMetaOwnerReferencesTable() {
-	tablePath := []string{"metadata", "ownerReferences"}
-	table := m.schema.TableFactory(m.schema.TableName(omOwnerReferencesSuffix), tablePath)
-	table.AddBigIntPK()
+// objectMetaFinalizers
+func objectMetaFinalizers() extv1beta1.JSONSchemaProps {
+	return jsonSchemaProps(JSTypeArray, "", nil, jsonSchemaPropsOrArray(jsPropString), nil)
+}
 
-	table.AddColumn(&Column{Name: "apiVersion", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "kind", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "name", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "controller", Type: PgTypeBoolean, OriginalType: JSTypeBoolean})
-	table.AddColumn(&Column{
-		Name:         "block_owner_deletion",
-		Type:         PgTypeBoolean,
-		OriginalType: JSTypeBoolean,
+// objectMetaFields io.k8s.apimachinery.pkg.apis.meta.v1.Fields
+func objectMetaFields() extv1beta1.JSONSchemaProps {
+	properties := map[string]extv1beta1.JSONSchemaProps{
+		"groupVersion": jsPropString,
+		"version":      jsPropString,
+	}
+	return jsonSchemaProps(JSTypeObject, "", []string{"groupVersion", "version"}, nil, properties)
+}
+
+// objectMetaManagedFields defines ObjectMeta.managedFields entry.
+func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
+	return jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		"apiVersion": jsPropString,
+		"fields":     objectMetaFields(),
+		"manager":    jsPropString,
+		"operation":  jsPropString,
+		"time":       jsPropDateTime,
 	})
 }
 
-// objectMetaManagedFieldsTable part of ObjectMeta, stores managed fields.
-func (m *Metadata) objectMetaManagedFieldsTable() {
-	tablePath := []string{"metadata", "managedFields"}
-	table := m.schema.TableFactory(m.schema.TableName(omManagedFieldsSuffix), tablePath)
-	table.AddBigIntPK()
-
-	// table.AddColumn(&Column{Name: "manager", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "operation", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "apiVersion", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "time", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "fieldsType", Type: PgTypeText, OriginalType: JSTypeString})
-	table.AddColumn(&Column{Name: "fieldsV1", Type: PgTypeText, OriginalType: JSTypeString})
+// objectMetaOwnerReferences defines ObjectMeta.ownerReferences entry.
+func objectMetaOwnerReferences() extv1beta1.JSONSchemaProps {
+	return jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		"apiVersion":         jsPropString,
+		"blockOwnerDeletion": jsPropBoolean,
+		"controller":         jsPropBoolean,
+		"kind":               jsPropString,
+		"name":               jsPropString,
+		"uid":                jsPropString,
+	})
 }
 
-// Add object-meta tables on informed table.
-func (m *Metadata) Add(table *Table) {
-	m.objectMetaTable()
-	// m.objectMetaAnnotationsTable()
-	// m.objectMetaLabelsTable()
-	// m.objectMetaManagedFieldsTable()
-	// m.objectMetaOwnerReferencesTable()
-
-	table.AddBigIntFK("metadata_id", m.schema.TableName(omSuffix), true)
-}
-
-// NewMetadata instantiate Metadata.
-func NewMetadata(schema *Schema) *Metadata {
-	return &Metadata{schema: schema}
+// metaV1ObjectMetaOpenAPIV3Schema creates an ObjectMeta object based on metav1.
+func metaV1ObjectMetaOpenAPIV3Schema() map[string]extv1beta1.JSONSchemaProps {
+	return map[string]extv1beta1.JSONSchemaProps{
+		"annotations":                objectMetaStringKV(),
+		"clusterName":                jsPropString,
+		"creationTimestamp":          jsPropString,
+		"deletionGracePeriodSeconds": jsPropInt64,
+		"deletionTimestamp":          jsPropDateTime,
+		"finalizers":                 objectMetaFinalizers(),
+		"generateName":               jsPropString,
+		"generation":                 jsPropInt64,
+		"labels":                     objectMetaStringKV(),
+		"managedFields":              objectMetaManagedFields(),
+		"name":                       jsPropString,
+		"namespace":                  jsPropString,
+		"ownerReferences":            objectMetaOwnerReferences(),
+		"resourceVersion":            jsPropString,
+		"selfLink":                   jsPropString,
+		"uid":                        jsPropString,
+	}
 }

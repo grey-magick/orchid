@@ -35,9 +35,10 @@ func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
 				"simple": JSONSchemaProps("string", "", nil, nil),
 				"complex": JSONSchemaProps("object", "", nil, map[string]extv1beta1.JSONSchemaProps{
 					"simple_nested": JSONSchemaProps("string", "", nil, nil),
-					"complex_nested": JSONSchemaProps("object", "", []string{"attribute"}, map[string]extv1beta1.JSONSchemaProps{
-						"attribute": JSONSchemaProps("string", "", nil, nil),
-					}),
+					"complex_nested": JSONSchemaProps(
+						"object", "", []string{"attribute"}, map[string]extv1beta1.JSONSchemaProps{
+							"attribute": JSONSchemaProps("string", "", nil, nil),
+						}),
 				}),
 			}),
 			// "status": JSONSchemaProps("string", "", nil, nil),
@@ -46,6 +47,7 @@ func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
 }
 
 func UnstructuredCRMock() (*unstructured.Unstructured, error) {
+	now := metav1.NewTime(time.Now())
 	u := &unstructured.Unstructured{}
 
 	u.SetUnstructuredContent(map[string]interface{}{
@@ -68,7 +70,14 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	u.SetGenerateName("generated-name")
 	u.SetGeneration(1)
 	u.SetLabels(map[string]string{"label": "label"})
-	u.SetManagedFields([]metav1.ManagedFieldsEntry{})
+	u.SetManagedFields([]metav1.ManagedFieldsEntry{{
+		Manager:    "manager",
+		APIVersion: "manager/v1",
+		Time:       &now,
+		Operation:  metav1.ManagedFieldsOperationApply,
+		FieldsType: "field-type",
+		FieldsV1:   &metav1.FieldsV1{},
+	}})
 	u.SetNamespace("namespace")
 	u.SetOwnerReferences([]metav1.OwnerReference{
 		{APIVersion: "owner/v1"},
@@ -77,7 +86,6 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	u.SetResourceVersion("v1")
 	u.SetSelfLink("self-link")
 	u.SetUID("uid")
-	now := metav1.NewTime(time.Now())
 	u.SetCreationTimestamp(now)
 	u.SetDeletionTimestamp(nil)
 	u.SetFinalizers([]string{"finalizer"})
