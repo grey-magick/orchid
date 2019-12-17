@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,11 +16,11 @@ func TestRepository_New(t *testing.T) {
 	err := pgORM.Connect()
 	assert.NoError(t, err)
 
-	model := NewRepository(pgORM)
-	assert.NotNil(t, model)
+	repo := NewRepository(pgORM)
+	assert.NotNil(t, repo)
 
 	t.Run("Bootstrap", func(t *testing.T) {
-		err := model.Bootstrap()
+		err := repo.Bootstrap()
 		require.NoError(t, err)
 	})
 
@@ -27,7 +28,7 @@ func TestRepository_New(t *testing.T) {
 		crd, err := mocks.UnstructuredCRDMock()
 		require.NoError(t, err)
 
-		err = model.Create(crd)
+		err = repo.Create(crd)
 		require.NoError(t, err)
 	})
 
@@ -36,8 +37,13 @@ func TestRepository_New(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("cr='%+v'", cr)
+		t.Logf("cr='%+v'", cr.GetManagedFields())
 
-		err = model.Create(cr)
+		err = repo.Create(cr)
 		assert.NoError(t, err)
+
+		schemaName := repo.schemaName(cr.GetObjectKind().GroupVersionKind())
+		sqlLib := orm.NewSQL(repo.schemaFactory(schemaName))
+		fmt.Println(sqlLib.Select())
 	})
 }

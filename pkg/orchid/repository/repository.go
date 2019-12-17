@@ -61,55 +61,49 @@ func (r *Repository) createCRTables(u *unstructured.Unstructured) error {
 	return r.orm.CreateSchemaTables(crSchema)
 }
 
-// schemaTablesLoop invoke the informed function on each column, per table in schema. It will skip
-// columns that are either primary-key or foresign-keys, which means the matrix returned won't be
-// an exact match. It returns error when informed function does.
-func (r *Repository) schemaTablesLoop(
-	s *orm.Schema,
-	u *unstructured.Unstructured,
-	fn schemaTablesLoopFn,
-) ([][]interface{}, error) {
-	arguments := make([][]interface{}, len(s.Tables))
-	for i, table := range s.Tables {
-		for _, column := range table.Columns {
-			if table.IsPrimaryKey(column.Name) || table.IsForeignKey(column.Name) {
-				continue
-			}
-			data, err := fn(table, column)
-			if err != nil {
-				return nil, err
-			}
-			arguments[i] = append(arguments[i], data)
-		}
-	}
-	return arguments, nil
-}
-
 // prepareCRD prepare the data matrix from a given CRD resource, informed as unstructured. It can
 // return error in case of trying to extract data.
 func (r *Repository) prepareCRD(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
-) ([][]interface{}, error) {
-	return r.schemaTablesLoop(s, u, func(table *orm.Table, column *orm.Column) (interface{}, error) {
-		switch column.Name {
-		case orm.CRDRawDataColumn:
+) (map[string][][]interface{}, error) {
+	dataCRD := map[string][][]interface{}{}
+
+	for _, table := range s.Tables {
+		dataColumns := []interface{}{}
+		for _, column := range table.Columns {
+			if table.IsPrimaryKey(column.Name) || table.IsForeignKey(column.Name) {
+				continue
+			}
+
 			// CRD data is saved as regular json, in a JSONB column, therefore it's extracted as a
 			// single entry.
-			json, err := u.MarshalJSON()
-			if err != nil {
-				return nil, err
+			var data interface{}
+			if column.Name == orm.CRDRawDataColumn {
+				json, err := u.MarshalJSON()
+				if err != nil {
+					return nil, err
+				}
+				data = string(json)
+			} else {
+				var err error
+				columnFieldPath := append(table.Path, column.Name)
+				data, err = extractPath(u.Object, column.OriginalType, columnFieldPath)
+				if err != nil {
+					if column.NotNull {
+						return nil, err
+					}
+					if data, err = column.Null(); err != nil {
+						return nil, err
+					}
+				}
 			}
-			return string(json), nil
-		default:
-			columnFieldPath := append(table.Path, column.Name)
-			data, err := extract(u.Object, column.OriginalType, columnFieldPath)
-			if err != nil {
-				return nil, err
-			}
-			return data, nil
+			dataColumns = append(dataColumns, data)
 		}
-	})
+		dataCRD[table.Name] = append(dataCRD[table.Name], dataColumns)
+	}
+
+	return dataCRD, nil
 }
 
 // prepareCR prepare the data matrix from any CR resource, informed as unstructured. It can return
@@ -117,21 +111,57 @@ func (r *Repository) prepareCRD(
 func (r *Repository) prepareCR(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
-) ([][]interface{}, error) {
-	return r.schemaTablesLoop(s, u, func(table *orm.Table, column *orm.Column) (interface{}, error) {
-		columnFieldPath := append(table.Path, column.Name)
-		data, err := extract(u.Object, column.OriginalType, columnFieldPath)
-		if err != nil {
-			if !column.NotNull {
-				if data, err = column.Null(); err != nil {
-					return nil, err
-				}
-			} else {
+) (map[string][][]interface{}, error) {
+	obj := u.Object
+	dataCR := map[string][][]interface{}{}
+
+	for _, table := range s.Tables {
+		fieldPath := table.Path
+		dataTable := [][]interface{}{}
+
+		if table.OneToMany && table.KV {
+			itemMap, err := nestedMap(obj, fieldPath)
+			if err != nil {
 				return nil, err
 			}
+			dataTable = append(dataTable, extractKV(itemMap)...)
+		} else if table.OneToMany {
+			// if len(fieldPath) > 1 && s.HasOneToMany(fieldPath[0:len(fieldPath)-1]) {
+			// 	fieldPath = fieldPath[0 : len(fieldPath)-1]
+			// }
+			slice, err := nestedSlice(obj, fieldPath)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, item := range slice {
+				// expect to always find KV format
+				itemMap := item.(map[string]interface{})
+
+				if table.KV {
+					dataTable = append(dataTable, extractKV(itemMap)...)
+				} else {
+					dataColumns, err := extractColumns(itemMap, []string{}, table)
+					if err != nil {
+						return nil, err
+					}
+					dataTable = append(dataTable, dataColumns)
+				}
+			}
+		} else {
+			if table.KV {
+				dataTable = append(dataTable, extractKV(obj)...)
+			} else {
+				dataColumns, err := extractColumns(obj, table.Path, table)
+				if err != nil {
+					return nil, err
+				}
+				dataTable = append(dataTable, dataColumns)
+			}
 		}
-		return data, nil
-	})
+		dataCR[table.Name] = append(dataCR[table.Name], dataTable...)
+	}
+	return dataCR, nil
 }
 
 // Create will persist a given resource, informed as unstructured, using the ORM instance. It gives
@@ -143,7 +173,7 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 	s := r.schemaFactory(r.schemaName(gvk))
 
 	// slice of slices to capture insert data per table
-	var arguments [][]interface{}
+	var arguments map[string][][]interface{}
 	var err error
 	if gvk.String() == crdGVK.String() {
 		if arguments, err = r.prepareCRD(s, u); err != nil {

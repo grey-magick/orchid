@@ -13,7 +13,7 @@ import (
 )
 
 // nestedSlice extract informed field path and converts as an PostgreSQL array.
-func nestedSlice(obj map[string]interface{}, fieldPath []string) (interface{}, error) {
+func nestedSlice(obj map[string]interface{}, fieldPath []string) ([]interface{}, error) {
 	slice, found, err := unstructured.NestedSlice(obj, fieldPath...)
 	if !found {
 		return nil, fmt.Errorf("unable to find data at '%#v'", fieldPath)
@@ -21,7 +21,7 @@ func nestedSlice(obj map[string]interface{}, fieldPath []string) (interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	return pq.Array(slice), nil
+	return slice, nil
 }
 
 // nestedBool extract informed field path as boolean.
@@ -72,9 +72,9 @@ func nestedFloat64(obj map[string]interface{}, fieldPath []string) (float64, err
 	return number, nil
 }
 
-// extract informed field path based on informed original type. The original type is expected to be
-// based on JSON-Schema types.
-func extract(
+// extractPath informed field-path based on informed original type. The original type is expected
+// to be based on JSON-Schema types.
+func extractPath(
 	obj map[string]interface{},
 	originalType string,
 	fieldPath []string,
@@ -85,6 +85,7 @@ func extract(
 	switch originalType {
 	case orm.JSTypeArray:
 		data, err = nestedSlice(obj, fieldPath)
+		data = pq.Array(data)
 	case orm.JSTypeBoolean:
 		data, err = nestedBool(obj, fieldPath)
 	case orm.JSTypeString:
@@ -103,7 +104,39 @@ func extract(
 		return nil, err
 	}
 	return data, err
+}
 
+func extractKV(obj map[string]interface{}) [][]interface{} {
+	data := make([][]interface{}, len(obj))
+	for k, v := range obj {
+		data = append(data, []interface{}{k, v})
+	}
+	return data
+}
+
+func extractColumns(
+	obj map[string]interface{},
+	fieldPath []string,
+	table *orm.Table,
+) ([]interface{}, error) {
+	dataColumns := []interface{}{}
+	for _, column := range table.Columns {
+		if table.IsPrimaryKey(column.Name) || table.IsForeignKey(column.Name) {
+			continue
+		}
+		columnFieldPath := append(fieldPath, column.Name)
+		data, err := extractPath(obj, column.OriginalType, columnFieldPath)
+		if err != nil {
+			if column.NotNull {
+				return nil, err
+			}
+			if data, err = column.Null(); err != nil {
+				return nil, err
+			}
+		}
+		dataColumns = append(dataColumns, data)
+	}
+	return dataColumns, nil
 }
 
 // nestedMap extract informed field path as a Map.

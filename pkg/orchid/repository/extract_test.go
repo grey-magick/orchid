@@ -10,12 +10,12 @@ import (
 	"github.com/isutton/orchid/test/mocks"
 )
 
-func TestExtract_extract(t *testing.T) {
+func TestExtract_extractPath(t *testing.T) {
 	cr, err := mocks.UnstructuredCRMock()
 	require.NoError(t, err)
 
 	fieldPath := []string{"spec", "simple"}
-	data, err := extract(cr.Object, orm.JSTypeString, fieldPath)
+	data, err := extractPath(cr.Object, orm.JSTypeString, fieldPath)
 	require.NoError(t, err)
 	assert.NotNil(t, data)
 	assert.Equal(t, "11", data)
