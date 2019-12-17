@@ -36,49 +36,47 @@ func (s *SQL) Insert() []string {
 	return inserts
 }
 
+// hint create a hint out of a name, by splitting on underscore and using the first charactere.
+func (s *SQL) hint(name string) string {
+	var short string
+	for _, section := range strings.Split(name, "_") {
+		short = fmt.Sprintf("%s%s", short, string(section[0]))
+	}
+	return strings.ToLower(short)
+}
+
 // Select generates a select statement for the schema.
 func (s *SQL) Select() string {
 	columns := []string{}
 	from := []string{}
 	where := []string{}
-	leftJoin := []string{}
 
-	tables := s.schema.TablesReversed()
-	for _, table := range tables {
+	for _, table := range s.schema.TablesReversed() {
 		tableName := table.Name
+
 		for _, column := range table.ColumNames() {
-			columns = append(columns, fmt.Sprintf("%s.%s", tableName, column))
+			columns = append(columns, fmt.Sprintf("%s.%s", s.hint(tableName), column))
 		}
-		if !table.OneToMany {
-			from = append(from, tableName)
-		}
+
 		for _, constraint := range table.Constraints {
-			if table.OneToMany && constraint.RelatedTableName != "" {
-				leftJoin = append(leftJoin, fmt.Sprintf(
-					"left join %s on %s.id=%s.%s",
-					constraint.RelatedTableName,
-					table.Name,
-					constraint.RelatedTableName,
-					constraint.RelatedColumnName,
-				))
-			} else {
+			if constraint.Type != PgConstraintFK {
 				continue
-				where = append(where, fmt.Sprintf(
-					"%s.%s=%s.%s",
-					tableName,
-					constraint.ColumnName,
-					constraint.RelatedTableName,
-					constraint.RelatedColumnName,
-				))
 			}
+			where = append(where, fmt.Sprintf("%s.%s=%s.%s",
+				s.hint(constraint.RelatedTableName),
+				constraint.RelatedColumnName,
+				s.hint(tableName),
+				constraint.ColumnName,
+			))
 		}
+
+		from = append(from, fmt.Sprintf("%s %s", tableName, s.hint(tableName)))
 	}
 
 	return fmt.Sprintf(
-		"select %s\nfrom %s\n%s\nwhere %s\n",
+		"select %s from %s where %s",
 		strings.Join(columns, ", "),
 		strings.Join(from, ", "),
-		strings.Join(leftJoin, " "),
 		strings.Join(where, " AND "),
 	)
 }
