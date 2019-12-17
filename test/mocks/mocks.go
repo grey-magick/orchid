@@ -48,6 +48,7 @@ func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
 
 func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	now := metav1.NewTime(time.Now())
+	truePtr := true
 	u := &unstructured.Unstructured{}
 
 	u.SetUnstructuredContent(map[string]interface{}{
@@ -76,12 +77,25 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 		Time:       &now,
 		Operation:  metav1.ManagedFieldsOperationApply,
 		FieldsType: "field-type",
-		FieldsV1:   &metav1.FieldsV1{},
 	}})
 	u.SetNamespace("namespace")
 	u.SetOwnerReferences([]metav1.OwnerReference{
-		{APIVersion: "owner/v1"},
-		{APIVersion: "owner2/v1"},
+		{
+			APIVersion:         "owner/v1",
+			BlockOwnerDeletion: &truePtr,
+			Controller:         &truePtr,
+			Kind:               "Owner1",
+			Name:               "ownername1",
+			UID:                "owner1-uid",
+		},
+		{
+			APIVersion:         "owner/v2",
+			BlockOwnerDeletion: &truePtr,
+			Controller:         &truePtr,
+			Kind:               "Owner2",
+			Name:               "ownername2",
+			UID:                "owner2-uid",
+		},
 	})
 	u.SetResourceVersion("v1")
 	u.SetSelfLink("self-link")
