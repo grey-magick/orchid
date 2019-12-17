@@ -59,7 +59,7 @@ func (o *ORM) interpolate(
 	return argumentWithFK, nil
 }
 
-func (o *ORM) Create(schema *Schema, argumentsMatrix [][]interface{}) error {
+func (o *ORM) Create(schema *Schema, argumentsPerTable map[string][][]interface{}) error {
 	sqlLib := NewSQL(schema)
 	statements := sqlLib.Insert()
 	cachedIDs := make(map[string]int64, len(statements))
@@ -71,24 +71,34 @@ func (o *ORM) Create(schema *Schema, argumentsMatrix [][]interface{}) error {
 
 	for i, table := range schema.Tables {
 		statement := statements[i]
-		arguments := argumentsMatrix[i]
+		argumentsSlice, found := argumentsPerTable[table.Name]
+		if !found {
+			continue
+		}
 
-		// in case the case of arguments for this table being less than expected, completing the
-		// slice with foreign-key cached IDs
-		if len(arguments) < len(table.Columns)-1 {
-			if arguments, err = o.interpolate(table, arguments, cachedIDs); err != nil {
+		for _, arguments := range argumentsSlice {
+			// in case the case of arguments for this table being less than expected, completing the
+			// slice with foreign-key cached IDs
+			if len(arguments) == 0 {
+				log.Print("[WARN] arguments is empty!!")
+				continue
+			}
+
+			if len(arguments) < len(table.Columns)-1 {
+				if arguments, err = o.interpolate(table, arguments, cachedIDs); err != nil {
+					return err
+				}
+			}
+
+			log.Printf("statement='%s', arguments='%#v'", statement, arguments)
+
+			var primaryKeyValue int64
+			if err = txn.QueryRow(statement, arguments...).Scan(&primaryKeyValue); err != nil {
 				return err
 			}
+			log.Printf("primary-key='%#v'", primaryKeyValue)
+			cachedIDs[table.Name] = primaryKeyValue
 		}
-
-		log.Printf("statement='%s', arguments='%#v'", statement, arguments)
-
-		var primaryKeyValue int64
-		if err = txn.QueryRow(statement, arguments...).Scan(&primaryKeyValue); err != nil {
-			return err
-		}
-		log.Printf("primary-key='%#v'", primaryKeyValue)
-		cachedIDs[table.Name] = primaryKeyValue
 	}
 
 	return txn.Commit()

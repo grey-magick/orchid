@@ -22,24 +22,23 @@ func assertJsonSchemaVsORMSchema(
 	assert.True(t, len(table.ColumNames()) > 0)
 
 	for name, jsonSchema := range properties {
-		if jsonSchema.Type == JSTypeObject {
-			tableName := schema.TableName(name)
-			t.Logf("table-name='%s'", tableName)
-			require.NotEmpty(t, tableName)
-
-			objectTable := schema.GetTable(tableName)
-			if objectTable == nil {
-				continue
-			}
-
-			assert.True(t, len(objectTable.ColumNames()) >= len(jsonSchema.Properties))
-			assert.NotNil(t, jsonSchema.Properties)
-
-			assertJsonSchemaVsORMSchema(t, schema, objectTable, jsonSchema.Properties)
-		} else {
-			column := table.GetColumn(name)
-			assert.NotNil(t, column)
+		if jsonSchema.Type != JSTypeObject {
+			continue
 		}
+
+		tableName := schema.TableName(name)
+		t.Logf("table-name='%s'", tableName)
+		require.NotEmpty(t, tableName)
+
+		objectTable := schema.GetTable(tableName)
+		if objectTable == nil {
+			continue
+		}
+
+		assert.True(t, len(objectTable.ColumNames()) >= 2)
+		assert.NotNil(t, jsonSchema.Properties)
+
+		assertJsonSchemaVsORMSchema(t, schema, objectTable, jsonSchema.Properties)
 	}
 }
 

@@ -11,6 +11,11 @@ var (
 	jsPropBoolean  = jsonSchemaProps(JSTypeBoolean, "", nil, nil, nil)
 )
 
+// jsonSchemaPropsOrArray creates a JSONSchemaPropsOrArray skeleton based on properties.
+func jsonSchemaPropsOrArray(props extv1beta1.JSONSchemaProps) *extv1beta1.JSONSchemaPropsOrArray {
+	return &extv1beta1.JSONSchemaPropsOrArray{Schema: &props}
+}
+
 // jsonSchemaProps creates a json-schema object skeleton.
 func jsonSchemaProps(
 	jsType string,
@@ -28,11 +33,6 @@ func jsonSchemaProps(
 	}
 }
 
-// jsonSchemaPropsOrArray creates a JSONSchemaPropsOrArray skeleton based on properties.
-func jsonSchemaPropsOrArray(props extv1beta1.JSONSchemaProps) *extv1beta1.JSONSchemaPropsOrArray {
-	return &extv1beta1.JSONSchemaPropsOrArray{Schema: &props}
-}
-
 // objectMetaStringKV creates a key-value entry.
 func objectMetaStringKV() extv1beta1.JSONSchemaProps {
 	return extv1beta1.JSONSchemaProps{
@@ -46,36 +46,43 @@ func objectMetaFinalizers() extv1beta1.JSONSchemaProps {
 	return jsonSchemaProps(JSTypeArray, "", nil, jsonSchemaPropsOrArray(jsPropString), nil)
 }
 
-// objectMetaFields io.k8s.apimachinery.pkg.apis.meta.v1.Fields
-func objectMetaFields() extv1beta1.JSONSchemaProps {
-	properties := map[string]extv1beta1.JSONSchemaProps{
-		"groupVersion": jsPropString,
-		"version":      jsPropString,
-	}
-	return jsonSchemaProps(JSTypeObject, "", []string{"groupVersion", "version"}, nil, properties)
-}
+// // objectMetaFields io.k8s.apimachinery.pkg.apis.meta.v1.Fields
+// func objectMetaFields() extv1beta1.JSONSchemaProps {
+// 	properties := map[string]extv1beta1.JSONSchemaProps{
+// 		"groupVersion": jsPropString,
+// 		"version":      jsPropString,
+// 	}
+// 	return jsonSchemaProps(JSTypeObject, "", []string{"groupVersion", "version"}, nil, properties)
+// }
 
 // objectMetaManagedFields defines ObjectMeta.managedFields entry.
 func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
-	return jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
-		"apiVersion": jsPropString,
-		"fields":     objectMetaFields(),
-		"manager":    jsPropString,
-		"operation":  jsPropString,
-		"time":       jsPropDateTime,
-	})
+	items := jsonSchemaPropsOrArray(
+		jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+			"apiVersion": jsPropString,
+			"manager":    jsPropString,
+			"operation":  jsPropString,
+			"time":       jsPropDateTime,
+			// FIXME: how to support fieldsV1?
+			// "fields":     objectMetaFields(),
+		}),
+	)
+	return jsonSchemaProps(JSTypeArray, "", nil, items, nil)
 }
 
 // objectMetaOwnerReferences defines ObjectMeta.ownerReferences entry.
 func objectMetaOwnerReferences() extv1beta1.JSONSchemaProps {
-	return jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
-		"apiVersion":         jsPropString,
-		"blockOwnerDeletion": jsPropBoolean,
-		"controller":         jsPropBoolean,
-		"kind":               jsPropString,
-		"name":               jsPropString,
-		"uid":                jsPropString,
-	})
+	items := jsonSchemaPropsOrArray(
+		jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+			"apiVersion":         jsPropString,
+			"blockOwnerDeletion": jsPropBoolean,
+			"controller":         jsPropBoolean,
+			"kind":               jsPropString,
+			"name":               jsPropString,
+			"uid":                jsPropString,
+		}),
+	)
+	return jsonSchemaProps(JSTypeArray, "", nil, items, nil)
 }
 
 // metaV1ObjectMetaOpenAPIV3Schema creates an ObjectMeta object based on metav1.

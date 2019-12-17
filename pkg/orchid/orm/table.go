@@ -8,9 +8,11 @@ import (
 // Table represents database table with columns and constraints.
 type Table struct {
 	Name        string        // table name
+	Path        []string      // path to the node in the Orchid object
 	Columns     []*Column     // table columns
 	Constraints []*Constraint // constraints
-	Path        []string      // path to the node in the Orchid object
+	OneToMany   bool          // meant for ene-to-many relationship
+	KV          bool          // meant for key-value store
 }
 
 // GetColumn return the instance of column based on name.
@@ -23,23 +25,24 @@ func (t *Table) GetColumn(name string) *Column {
 	return nil
 }
 
-// IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
-func (t *Table) IsPrimaryKey(columnName string) bool {
+// hasContraint check slice of contraint for a given constraint type and column name.
+func (t *Table) hasContraint(contratintType, columnName string) bool {
 	for _, constraint := range t.Constraints {
-		if constraint.ColumnName == columnName && constraint.Type == PgConstraintPK {
+		if constraint.ColumnName == columnName && constraint.Type == contratintType {
 			return true
 		}
 	}
 	return false
 }
 
+// IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
+func (t *Table) IsPrimaryKey(columnName string) bool {
+	return t.hasContraint(PgConstraintPK, columnName)
+}
+
+// IsForeignKey inspect constraints to check if a foreign-key is set to column name.
 func (t *Table) IsForeignKey(columnName string) bool {
-	for _, constraint := range t.Constraints {
-		if constraint.ColumnName == columnName && constraint.Type == PgConstraintFK {
-			return true
-		}
-	}
-	return false
+	return t.hasContraint(PgConstraintFK, columnName)
 }
 
 // ForeignKeyTable in case of columnName being a foreign key, returning the table name it points to.
@@ -111,34 +114,22 @@ func (t *Table) ColumNames() []string {
 
 // String print out table creation SQL statement, and alter-table statement to include foreign keys
 // later in the process.
-func (t *Table) String() (string, string) {
+func (t *Table) String() string {
 	columns := []string{}
 	for _, column := range t.Columns {
 		columns = append(columns, column.String())
 	}
 
-	foreignKeys := []string{}
 	constrains := []string{}
 	for _, constraint := range t.Constraints {
-		if constraint.Type == PgConstraintFK {
-			foreignKeys = append(foreignKeys, constraint.String())
-		} else {
-			constrains = append(constrains, constraint.String())
-		}
+		constrains = append(constrains, constraint.String())
 	}
 
-	createTable := fmt.Sprintf("create table if not exists %s (%s, %s)",
+	return fmt.Sprintf("create table if not exists %s (%s, %s)",
 		t.Name, strings.Join(columns, ", "), strings.Join(constrains, ", "))
-	if len(foreignKeys) == 0 {
-		return createTable, ""
-	}
-
-	alterTable := fmt.Sprintf("alter table %s add %s", t.Name, strings.Join(foreignKeys, ", add "))
-	return createTable, alterTable
-
 }
 
 // NewTable instantiate a new Table.
-func NewTable(name string, tablePath []string) *Table {
-	return &Table{Name: name, Path: tablePath}
+func NewTable(name string) *Table {
+	return &Table{Name: name}
 }

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -12,6 +13,14 @@ import (
 type Schema struct {
 	Name   string   // primary table and schema name
 	Tables []*Table // schema tables
+}
+
+// Relationship describes what a new table needs to have in order to establish a relationship
+type Relationship struct {
+	Path        []string      // data path in respective to original object
+	Constraints []*Constraint // list of constraints
+	OneToMany   bool          // one-to-many flag
+	KV          bool          // key-value flag
 }
 
 // TableName append suffix on schema name.
@@ -28,15 +37,21 @@ func (s *Schema) prepend(table *Table) {
 	s.Tables[0] = table
 }
 
-// TableFactory return existing or create new table instance.
-func (s *Schema) TableFactory(tableName string, tablePath []string) *Table {
+// TableFactory return existing or create new table instance, where when one-to-many flag true it
+// appends the table instead of prepending. The sequence of tables matters during table creation
+// and insertion of data.
+func (s *Schema) TableFactory(tableName string, oneToMany bool) *Table {
 	for _, table := range s.Tables {
 		if tableName == table.Name {
 			return table
 		}
 	}
-	table := NewTable(tableName, tablePath)
-	s.prepend(table)
+	table := NewTable(tableName)
+	if oneToMany {
+		s.Tables = append(s.Tables, table)
+	} else {
+		s.prepend(table)
+	}
 	return table
 }
 
@@ -88,11 +103,11 @@ func (s *Schema) expandAdditionalProperties(
 // handleObject creates extra column and recursively new tables.
 func (s *Schema) handleObject(
 	table *Table,
-	tablePath []string,
 	columnName string,
 	notNull bool,
 	jsSchema extv1beta1.JSONSchemaProps,
 ) error {
+	relationship := Relationship{Path: append(table.Path, columnName)}
 	additionalProperties := jsSchema.AdditionalProperties
 	relatedTableName := fmt.Sprintf("%s_%s", table.Name, columnName)
 
@@ -102,49 +117,80 @@ func (s *Schema) handleObject(
 		return fmt.Errorf("unable to generate table/column with json-schema '%+v'", jsSchema)
 	}
 
-	constraints := []*Constraint{}
-	if additionalProperties != nil {
-		if additionalProperties.Schema == nil || additionalProperties.Schema.Type == "" {
-			return fmt.Errorf("unable to define schema from additionalProperties: '%+v'",
-				additionalProperties)
-		}
-		jsSchema = s.expandAdditionalProperties(additionalProperties, table.Name)
-		// triggering a one-to-many relationship, the next table to be created will get a foreign-key
-		// containing this current table's primary-key.
-		constraints = append(constraints, &Constraint{
-			Type:              PgConstraintFK,
-			ColumnName:        table.Name,
-			RelatedTableName:  table.Name,
-			RelatedColumnName: "id",
-		})
-	} else {
+	if additionalProperties == nil {
 		// managing an one-to-one relationship, this table will keep a foreign-key pointing to the
 		// next table to be created by primary-key
 		if table.GetColumn(relatedTableName) == nil {
 			table.AddBigIntFK(columnName, relatedTableName, "id", notNull)
 			table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: columnName})
 		}
+	} else {
+		if additionalProperties.Schema == nil || additionalProperties.Schema.Type == "" {
+			return fmt.Errorf("unable to define schema from additionalProperties: '%+v'",
+				additionalProperties)
+		}
+		jsSchema = s.expandAdditionalProperties(additionalProperties, table.Name)
+
+		// triggering a one-to-many relationship, the next table to be created will get a foreign-key
+		// containing this current table's primary-key.
+		relationship.KV = true
+		relationship.OneToMany = true
+		relationship.Constraints = append(relationship.Constraints, &Constraint{
+			Type:              PgConstraintFK,
+			ColumnName:        table.Name,
+			RelatedTableName:  table.Name,
+			RelatedColumnName: "id",
+		})
 	}
 
-	tablePath = append(tablePath, columnName)
-	return s.jsonSchemaParser(relatedTableName, tablePath, constraints, &jsSchema)
+	return s.jsonSchemaParser(relatedTableName, relationship, &jsSchema)
+}
+
+func (s *Schema) HasOneToMany(fieldPath []string) bool {
+	for _, table := range s.Tables {
+		if reflect.DeepEqual(table.Path, fieldPath) {
+			if table.OneToMany {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // handleArray creates an array column.
 func (s *Schema) handleArray(
 	table *Table,
-	name string,
+	columnName string,
 	notNull bool,
-	jsonSchema extv1beta1.JSONSchemaProps,
+	jsSchema extv1beta1.JSONSchemaProps,
 ) error {
-	itemsSchema := jsonSchema.Items.Schema
-	column, err := NewColumnArray(
-		name,
-		itemsSchema.Type,
-		itemsSchema.Format,
-		jsonSchema.MaxItems,
-		notNull,
-	)
+	if jsSchema.Items == nil || jsSchema.Items.Schema == nil {
+		return fmt.Errorf("items is not found under json-schema: '%+v'", jsSchema)
+	}
+	itemsSchema := jsSchema.Items.Schema
+
+	// in case of being an array of objects, it needs to spin off a new table
+	if itemsSchema.Type == JSTypeObject {
+		constraint := &Constraint{
+			Type:              PgConstraintFK,
+			ColumnName:        table.Name,
+			RelatedTableName:  table.Name,
+			RelatedColumnName: "id",
+		}
+		relationship := Relationship{
+			Path:        append(table.Path, columnName),
+			Constraints: []*Constraint{constraint},
+			OneToMany:   true,
+		}
+		relatedTableName := fmt.Sprintf("%s_%s", table.Name, columnName)
+		return s.jsonSchemaParser(relatedTableName, relationship, itemsSchema)
+	}
+
+	// adding a new column to existing table, a single dimension array
+	jsType := itemsSchema.Type
+	jsFormat := itemsSchema.Format
+	maxItems := jsSchema.MaxItems
+	column, err := NewColumnArray(columnName, jsType, jsFormat, maxItems, notNull)
 	if err != nil {
 		return err
 	}
@@ -155,11 +201,11 @@ func (s *Schema) handleArray(
 // handleColumn entries that can be translated to a simple column.
 func (s *Schema) handleColumn(
 	table *Table,
-	name string,
+	columnName string,
 	notNull bool,
 	jsonSchema extv1beta1.JSONSchemaProps,
 ) error {
-	column, err := NewColumn(name, jsonSchema.Type, jsonSchema.Format, notNull)
+	column, err := NewColumn(columnName, jsonSchema.Type, jsonSchema.Format, notNull)
 	if err != nil {
 		return err
 	}
@@ -171,62 +217,51 @@ func (s *Schema) handleColumn(
 // entry. It can return errors on not being able to deal with a given JSON-Schema type.
 func (s *Schema) jsonSchemaParser(
 	tableName string,
-	tablePath []string,
-	constraints []*Constraint,
+	relationship Relationship,
 	jsSchema *extv1beta1.JSONSchemaProps,
 ) error {
 	properties := jsSchema.Properties
 	required := jsSchema.Required
 
-	table := s.TableFactory(tableName, tablePath)
+	table := s.TableFactory(tableName, relationship.OneToMany)
 	// default serial primary key
 	table.AddSerialPK()
-	// adding expected table constraints
-	if len(constraints) > 0 {
-		for _, constraint := range constraints {
-			table.AddColumn(&Column{Type: PgTypeBigInt, Name: constraint.ColumnName, NotNull: true})
-			table.AddConstraint(constraint)
-		}
+	// changing table attributes according to the relationship
+	table.Path = relationship.Path
+	table.OneToMany = relationship.OneToMany
+	table.KV = relationship.KV
+	for _, constraint := range relationship.Constraints {
+		table.AddColumn(&Column{Type: PgTypeBigInt, Name: constraint.ColumnName, NotNull: true})
+		table.AddConstraint(constraint)
 	}
 
+	var err error
 	for name, jsSchema := range properties {
 		// checking if property name required, therefore not null column
 		notNull := s.isRequiredProp(name, required)
 
 		switch jsSchema.Type {
 		case JSTypeObject:
-			if err := s.handleObject(table, tablePath, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleObject(table, name, notNull, jsSchema)
 		case JSTypeArray:
-			if err := s.handleArray(table, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleArray(table, name, notNull, jsSchema)
 		case JSTypeBoolean:
-			if err := s.handleColumn(table, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleColumn(table, name, notNull, jsSchema)
 		case JSTypeString:
-			if err := s.handleColumn(table, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleColumn(table, name, notNull, jsSchema)
 		case JSTypeInteger:
-			if err := s.handleColumn(table, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleColumn(table, name, notNull, jsSchema)
 		case JSTypeNumber:
-			if err := s.handleColumn(table, name, notNull, jsSchema); err != nil {
-				return err
-			}
+			err = s.handleColumn(table, name, notNull, jsSchema)
 		default:
 			return fmt.Errorf("unknown json-schema type '%s'", jsSchema.Type)
 		}
 	}
-	return nil
+	return err
 }
 
-// GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to create
-// tables and columns. Can return error on JSON-Schema parsing.
+// GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to
+// create tables and columns. Can return error on JSON-Schema parsing.
 func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
 	// intercepting "metadata" attribute, making sure only on the first level
 	if _, found := openAPIV3Schema.Properties["metadata"]; found {
@@ -235,7 +270,7 @@ func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
 		openAPIV3Schema.Properties["metadata"] = metadata
 	}
 
-	return s.jsonSchemaParser(s.Name, []string{}, nil, openAPIV3Schema)
+	return s.jsonSchemaParser(s.Name, Relationship{}, openAPIV3Schema)
 }
 
 // GenerateCRD creates the tables to store the actual CRDs.

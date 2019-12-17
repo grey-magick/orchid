@@ -41,6 +41,7 @@ func (s *SQL) Select() string {
 	columns := []string{}
 	from := []string{}
 	where := []string{}
+	leftJoin := []string{}
 
 	tables := s.schema.TablesReversed()
 	for _, table := range tables {
@@ -48,37 +49,47 @@ func (s *SQL) Select() string {
 		for _, column := range table.ColumNames() {
 			columns = append(columns, fmt.Sprintf("%s.%s", tableName, column))
 		}
-		from = append(from, tableName)
+		if !table.OneToMany {
+			from = append(from, tableName)
+		}
 		for _, constraint := range table.Constraints {
-			if constraint.Type != PgConstraintFK {
+			if table.OneToMany && constraint.RelatedTableName != "" {
+				leftJoin = append(leftJoin, fmt.Sprintf(
+					"left join %s on %s.id=%s.%s",
+					constraint.RelatedTableName,
+					table.Name,
+					constraint.RelatedTableName,
+					constraint.RelatedColumnName,
+				))
+			} else {
 				continue
+				where = append(where, fmt.Sprintf(
+					"%s.%s=%s.%s",
+					tableName,
+					constraint.ColumnName,
+					constraint.RelatedTableName,
+					constraint.RelatedColumnName,
+				))
 			}
-			where = append(where, fmt.Sprintf(
-				"%s.%s=%s.%s",
-				tableName,
-				constraint.ColumnName,
-				constraint.RelatedTableName,
-				constraint.RelatedColumnName,
-			))
 		}
 	}
 
-	return fmt.Sprintf("select %s from %s where %s",
-		strings.Join(columns, ", "), strings.Join(from, ", "), strings.Join(where, " AND "))
+	return fmt.Sprintf(
+		"select %s\nfrom %s\n%s\nwhere %s\n",
+		strings.Join(columns, ", "),
+		strings.Join(from, ", "),
+		strings.Join(leftJoin, " "),
+		strings.Join(where, " AND "),
+	)
 }
 
 // CreateTables return the statements needed to create table and add foreign keys.
 func (s *SQL) CreateTables() []string {
 	createTables := []string{}
-	alterTables := []string{}
 	for _, table := range s.schema.Tables {
-		createTable, alterTable := table.String()
-		createTables = append(createTables, createTable)
-		if alterTable != "" {
-			alterTables = append(alterTables, alterTable)
-		}
+		createTables = append(createTables, table.String())
 	}
-	return append(createTables, alterTables...)
+	return createTables
 }
 
 // NewSQL instantiate an SQL.

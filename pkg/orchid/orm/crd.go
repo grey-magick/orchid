@@ -9,7 +9,7 @@ const CRDRawDataColumn = "data"
 
 // crdTable create a special table to store CRDs.
 func (c *CRD) crdTable() {
-	table := c.schema.TableFactory(c.schema.TableName("crd"), []string{})
+	table := c.schema.TableFactory(c.schema.TableName("crd"), false)
 	table.AddSerialPK()
 
 	table.AddColumn(&Column{
