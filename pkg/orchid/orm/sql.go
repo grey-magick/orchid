@@ -10,6 +10,15 @@ type SQL struct {
 	schema *Schema // ORM schema
 }
 
+// hint create a hint out of a name, by splitting on underscore and using the first charactere.
+func (s *SQL) hint(name string) string {
+	var short string
+	for _, section := range strings.Split(name, "_") {
+		short = fmt.Sprintf("%s%s", short, string(section[0]))
+	}
+	return strings.ToLower(short)
+}
+
 // valuesPlaceholders creates dollar based notation for the amount specified.
 func (s *SQL) valuesPlaceholders(amount int) []string {
 	placeholders := []string{}
@@ -34,15 +43,6 @@ func (s *SQL) Insert() []string {
 		inserts = append(inserts, insert)
 	}
 	return inserts
-}
-
-// hint create a hint out of a name, by splitting on underscore and using the first charactere.
-func (s *SQL) hint(name string) string {
-	var short string
-	for _, section := range strings.Split(name, "_") {
-		short = fmt.Sprintf("%s%s", short, string(section[0]))
-	}
-	return strings.ToLower(short)
 }
 
 // Select generates a select statement for the schema.
@@ -77,7 +77,7 @@ func (s *SQL) Select() string {
 		"select %s from %s where %s",
 		strings.Join(columns, ", "),
 		strings.Join(from, ", "),
-		strings.Join(where, " AND "),
+		strings.Join(where, " and "),
 	)
 }
 

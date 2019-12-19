@@ -46,15 +46,6 @@ func objectMetaFinalizers() extv1beta1.JSONSchemaProps {
 	return jsonSchemaProps(JSTypeArray, "", nil, jsonSchemaPropsOrArray(jsPropString), nil)
 }
 
-// // objectMetaFields io.k8s.apimachinery.pkg.apis.meta.v1.Fields
-// func objectMetaFields() extv1beta1.JSONSchemaProps {
-// 	properties := map[string]extv1beta1.JSONSchemaProps{
-// 		"groupVersion": jsPropString,
-// 		"version":      jsPropString,
-// 	}
-// 	return jsonSchemaProps(JSTypeObject, "", []string{"groupVersion", "version"}, nil, properties)
-// }
-
 // objectMetaManagedFields defines ObjectMeta.managedFields entry.
 func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
 	items := jsonSchemaPropsOrArray(
@@ -63,8 +54,6 @@ func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
 			"manager":    jsPropString,
 			"operation":  jsPropString,
 			"time":       jsPropDateTime,
-			// FIXME: how to support fieldsV1?
-			// "fields":     objectMetaFields(),
 		}),
 	)
 	return jsonSchemaProps(JSTypeArray, "", nil, items, nil)
