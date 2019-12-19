@@ -12,14 +12,26 @@ import (
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
+// nestedMap extract informed field path as a Map.
+func nestedMap(obj map[string]interface{}, fieldPath []string) (map[string]interface{}, error) {
+	data, found, err := unstructured.NestedMap(obj, fieldPath...)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+	}
+	return data, nil
+}
+
 // nestedSlice extract informed field path and converts as an PostgreSQL array.
 func nestedSlice(obj map[string]interface{}, fieldPath []string) ([]interface{}, error) {
 	slice, found, err := unstructured.NestedSlice(obj, fieldPath...)
-	if !found {
-		return nil, fmt.Errorf("unable to find data at '%#v'", fieldPath)
-	}
 	if err != nil {
 		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("unable to find data at '%+v'", fieldPath)
 	}
 	return slice, nil
 }
@@ -27,11 +39,11 @@ func nestedSlice(obj map[string]interface{}, fieldPath []string) ([]interface{},
 // nestedBool extract informed field path as boolean.
 func nestedBool(obj map[string]interface{}, fieldPath []string) (bool, error) {
 	boolean, found, err := unstructured.NestedBool(obj, fieldPath...)
-	if !found {
-		return false, fmt.Errorf("unable to find data at '%#v'", fieldPath)
-	}
 	if err != nil {
 		return false, err
+	}
+	if !found {
+		return false, fmt.Errorf("unable to find data at '%+v'", fieldPath)
 	}
 	return boolean, nil
 }
@@ -39,11 +51,11 @@ func nestedBool(obj map[string]interface{}, fieldPath []string) (bool, error) {
 // nestedString extracted informed filed path as string.
 func nestedString(obj map[string]interface{}, fieldPath []string) (string, error) {
 	str, found, err := unstructured.NestedString(obj, fieldPath...)
-	if !found {
-		return "", fmt.Errorf("unable to find string at '%#v'", fieldPath)
-	}
 	if err != nil {
 		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf("unable to find string at '%+v'", fieldPath)
 	}
 	return str, nil
 }
@@ -51,11 +63,11 @@ func nestedString(obj map[string]interface{}, fieldPath []string) (string, error
 // nestedInt64 extract informed field path as int64.
 func nestedInt64(obj map[string]interface{}, fieldPath []string) (int64, error) {
 	integer, found, err := unstructured.NestedInt64(obj, fieldPath...)
-	if !found {
-		return 0, fmt.Errorf("unable to find data at '%#v'", fieldPath)
-	}
 	if err != nil {
 		return 0, err
+	}
+	if !found {
+		return 0, fmt.Errorf("unable to find data at '%+v'", fieldPath)
 	}
 	return integer, nil
 }
@@ -63,11 +75,11 @@ func nestedInt64(obj map[string]interface{}, fieldPath []string) (int64, error) 
 // nestedFloat64 extract informed field path as float64.
 func nestedFloat64(obj map[string]interface{}, fieldPath []string) (float64, error) {
 	number, found, err := unstructured.NestedFloat64(obj, fieldPath...)
-	if !found {
-		return 0, fmt.Errorf("unable to find data at '%#v'", fieldPath)
-	}
 	if err != nil {
 		return 0, err
+	}
+	if !found {
+		return 0, fmt.Errorf("unable to find data at '%+v'", fieldPath)
 	}
 	return number, nil
 }
@@ -98,7 +110,7 @@ func extractPath(
 		return nil, fmt.Errorf("unable to handle type '%s'", originalType)
 	}
 	if data == nil {
-		return nil, fmt.Errorf("unable to extract data from field path '%#v'", fieldPath)
+		return nil, fmt.Errorf("unable to extract data from field path '%+v'", fieldPath)
 	}
 	if err != nil {
 		return nil, err
@@ -107,7 +119,7 @@ func extractPath(
 }
 
 func extractKV(obj map[string]interface{}) [][]interface{} {
-	data := make([][]interface{}, len(obj))
+	data := make([][]interface{}, 0, len(obj))
 	for k, v := range obj {
 		data = append(data, []interface{}{k, v})
 	}
@@ -137,18 +149,6 @@ func extractColumns(
 		dataColumns = append(dataColumns, data)
 	}
 	return dataColumns, nil
-}
-
-// nestedMap extract informed field path as a Map.
-func nestedMap(obj map[string]interface{}, fieldPath []string) (map[string]interface{}, error) {
-	data, found, err := unstructured.NestedMap(obj, fieldPath...)
-	if !found {
-		return nil, fmt.Errorf("unable to find data at '%#v'", fieldPath)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
 // extractCRDOpenAPIV3Schema extract known field path to store OpenAPI schema in a CRD unstructured

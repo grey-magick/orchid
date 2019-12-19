@@ -37,7 +37,6 @@ func TestRepository_New(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("cr='%+v'", cr)
-		t.Logf("cr='%+v'", cr.GetManagedFields())
 
 		err = repo.Create(cr)
 		assert.NoError(t, err)

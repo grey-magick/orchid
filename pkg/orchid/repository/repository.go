@@ -16,9 +16,6 @@ type Repository struct {
 	orm     *orm.ORM
 }
 
-// schemaTablesLoopFn function called on each column per table in schema.
-type schemaTablesLoopFn func(table *orm.Table, column *orm.Column) (interface{}, error)
-
 // crdGVK CustomServiceDefinition GVK
 var crdGVK = schema.GroupVersionKind{
 	Group:   "apiextensions.k8s.io",
@@ -67,7 +64,8 @@ func (r *Repository) prepareCRD(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
 ) (map[string][][]interface{}, error) {
-	dataCRD := map[string][][]interface{}{}
+	obj := u.Object
+	crd := map[string][][]interface{}{}
 
 	for _, table := range s.Tables {
 		dataColumns := []interface{}{}
@@ -88,7 +86,7 @@ func (r *Repository) prepareCRD(
 			} else {
 				var err error
 				columnFieldPath := append(table.Path, column.Name)
-				data, err = extractPath(u.Object, column.OriginalType, columnFieldPath)
+				data, err = extractPath(obj, column.OriginalType, columnFieldPath)
 				if err != nil {
 					if column.NotNull {
 						return nil, err
@@ -100,10 +98,10 @@ func (r *Repository) prepareCRD(
 			}
 			dataColumns = append(dataColumns, data)
 		}
-		dataCRD[table.Name] = append(dataCRD[table.Name], dataColumns)
+		crd[table.Name] = append(crd[table.Name], dataColumns)
 	}
 
-	return dataCRD, nil
+	return crd, nil
 }
 
 // prepareCR prepare the data matrix from any CR resource, informed as unstructured. It can return
@@ -113,55 +111,38 @@ func (r *Repository) prepareCR(
 	u *unstructured.Unstructured,
 ) (map[string][][]interface{}, error) {
 	obj := u.Object
-	dataCR := map[string][][]interface{}{}
+	cr := map[string][][]interface{}{}
+	nested := NewNested(s, obj)
 
 	for _, table := range s.Tables {
 		fieldPath := table.Path
 		dataTable := [][]interface{}{}
 
-		if table.OneToMany && table.KV {
-			itemMap, err := nestedMap(obj, fieldPath)
-			if err != nil {
-				return nil, err
-			}
-			dataTable = append(dataTable, extractKV(itemMap)...)
-		} else if table.OneToMany {
-			// if len(fieldPath) > 1 && s.HasOneToMany(fieldPath[0:len(fieldPath)-1]) {
-			// 	fieldPath = fieldPath[0 : len(fieldPath)-1]
-			// }
-			slice, err := nestedSlice(obj, fieldPath)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, item := range slice {
-				// expect to always find KV format
-				itemMap := item.(map[string]interface{})
-
-				if table.KV {
-					dataTable = append(dataTable, extractKV(itemMap)...)
-				} else {
-					dataColumns, err := extractColumns(itemMap, []string{}, table)
-					if err != nil {
-						return nil, err
-					}
-					dataTable = append(dataTable, dataColumns)
-				}
-			}
+		extracted := make([]map[string]interface{}, 0)
+		if len(fieldPath) == 0 {
+			extracted = append(extracted, obj)
 		} else {
+			var err error
+			if extracted, err = nested.Extract(fieldPath); err != nil {
+				return nil, err
+			}
+		}
+
+		for _, entry := range extracted {
 			if table.KV {
-				dataTable = append(dataTable, extractKV(obj)...)
+				dataTable = append(dataTable, extractKV(entry)...)
 			} else {
-				dataColumns, err := extractColumns(obj, table.Path, table)
+				dataColumns, err := extractColumns(entry, []string{}, table)
 				if err != nil {
 					return nil, err
 				}
 				dataTable = append(dataTable, dataColumns)
 			}
 		}
-		dataCR[table.Name] = append(dataCR[table.Name], dataTable...)
+
+		cr[table.Name] = append(cr[table.Name], dataTable...)
 	}
-	return dataCR, nil
+	return cr, nil
 }
 
 // Create will persist a given resource, informed as unstructured, using the ORM instance. It gives
