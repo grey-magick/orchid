@@ -6,6 +6,8 @@ import (
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
+// Nested is responsible by given a Unstructured object it's able to return any field path nested
+// in object's data.
 type Nested struct {
 	schema *orm.Schema
 	obj    map[string]interface{}
@@ -103,6 +105,7 @@ func (n *Nested) Extract(fieldPath []string) ([]map[string]interface{}, error) {
 	return n.lines, nil
 }
 
+// NewNested instantiate a new Nested.
 func NewNested(schema *orm.Schema, obj map[string]interface{}) *Nested {
 	return &Nested{schema: schema, obj: obj}
 }
