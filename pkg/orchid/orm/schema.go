@@ -2,7 +2,6 @@ package orm
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -23,6 +22,46 @@ type Relationship struct {
 	KV          bool          // key-value flag
 }
 
+// withPath returns the table instance having informed path, or nil.
+func (s *Schema) withPath(fieldPath []string) *Table {
+	for _, table := range s.Tables {
+		if len(fieldPath) != len(table.Path) {
+			continue
+		}
+		equals := true
+		for i, field := range fieldPath {
+			if table.Path[i] != field {
+				equals = false
+				break
+			}
+		}
+		if !equals {
+			continue
+		}
+		return table
+	}
+	return nil
+}
+
+// HasOneToMany checks if a table matching fieldPath is one-to-many
+func (s *Schema) HasOneToMany(fieldPath []string) bool {
+	table := s.withPath(fieldPath)
+	if table == nil {
+		return false
+	}
+	return table.OneToMany
+}
+
+// IsKV checks if a table matching fieldPath is key-value.
+func (s *Schema) IsKV(fieldPath []string) bool {
+	table := s.withPath(fieldPath)
+	if table == nil {
+		return false
+	}
+	return table.KV
+}
+
+// handleArray creates an array column.
 // TableName append suffix on schema name.
 func (s *Schema) TableName(suffix string) string {
 	name := strings.ReplaceAll(s.Name, ".", "_")
@@ -40,14 +79,14 @@ func (s *Schema) prepend(table *Table) {
 // TableFactory return existing or create new table instance, where when one-to-many flag true it
 // appends the table instead of prepending. The sequence of tables matters during table creation
 // and insertion of data.
-func (s *Schema) TableFactory(tableName string, oneToMany bool) *Table {
+func (s *Schema) TableFactory(tableName string, appendTable bool) *Table {
 	for _, table := range s.Tables {
 		if tableName == table.Name {
 			return table
 		}
 	}
 	table := NewTable(tableName)
-	if oneToMany {
+	if appendTable {
 		s.Tables = append(s.Tables, table)
 	} else {
 		s.prepend(table)
@@ -146,18 +185,6 @@ func (s *Schema) handleObject(
 	return s.jsonSchemaParser(relatedTableName, relationship, &jsSchema)
 }
 
-func (s *Schema) HasOneToMany(fieldPath []string) bool {
-	for _, table := range s.Tables {
-		if reflect.DeepEqual(table.Path, fieldPath) {
-			if table.OneToMany {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// handleArray creates an array column.
 func (s *Schema) handleArray(
 	table *Table,
 	columnName string,
