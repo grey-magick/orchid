@@ -3,6 +3,8 @@ package mocks
 import (
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,6 +48,14 @@ func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
 	}
 }
 
+func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{Object: data}, nil
+}
+
 func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	now := metav1.NewTime(time.Now())
 	truePtr := true
@@ -71,13 +81,22 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	u.SetGenerateName("generated-name")
 	u.SetGeneration(1)
 	u.SetLabels(map[string]string{"label": "label"})
-	u.SetManagedFields([]metav1.ManagedFieldsEntry{{
-		Manager:    "manager",
-		APIVersion: "manager/v1",
-		Time:       &now,
-		Operation:  metav1.ManagedFieldsOperationApply,
-		FieldsType: "field-type",
-	}})
+	u.SetManagedFields([]metav1.ManagedFieldsEntry{
+		{
+			Manager:    "manager1",
+			APIVersion: "manager1/v1",
+			Time:       &now,
+			Operation:  metav1.ManagedFieldsOperationApply,
+			FieldsType: "field-type",
+		},
+		{
+			Manager:    "manager2",
+			APIVersion: "manager2/v1",
+			Time:       &now,
+			Operation:  metav1.ManagedFieldsOperationUpdate,
+			FieldsType: "field-type",
+		},
+	})
 	u.SetNamespace("namespace")
 	u.SetOwnerReferences([]metav1.OwnerReference{
 		{
@@ -101,18 +120,76 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	u.SetSelfLink("self-link")
 	u.SetUID("uid")
 	u.SetCreationTimestamp(now)
-	u.SetDeletionTimestamp(nil)
+	u.SetDeletionTimestamp(&now)
 	u.SetFinalizers([]string{"finalizer"})
 
 	return u, nil
 }
 
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
+// UnstructuredReplicaSetMock returns an replica-set which contains nested one-to-many
+// relationships.
+func UnstructuredReplicaSetMock() (*unstructured.Unstructured, error) {
+	rs := &appsv1.ReplicaSet{
+		Spec: appsv1.ReplicaSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "first-key",
+						Values:   []string{"value1", "value2"},
+						Operator: metav1.LabelSelectorOpDoesNotExist,
+					},
+					{
+						Key:      "second-key",
+						Values:   []string{"value1", "value2"},
+						Operator: metav1.LabelSelectorOpExists,
+					},
+				},
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "replicaSet",
+					Namespace: "namespace",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  "first-container",
+							Image: "image",
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "first-port",
+									HostPort:      123,
+									ContainerPort: 456,
+								},
+								{
+									Name:          "second-port",
+									HostPort:      678,
+									ContainerPort: 456,
+								},
+							},
+						},
+						{
+							Name:  "second-container",
+							Image: "image",
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "first-port",
+									HostPort:      123,
+									ContainerPort: 456,
+								},
+								{
+									Name:          "second-port",
+									HostPort:      678,
+									ContainerPort: 456,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
-	return &unstructured.Unstructured{Object: data}, nil
+	return toUnstructured(rs)
 }
 
 func UnstructuredCRDMock() (*unstructured.Unstructured, error) {
