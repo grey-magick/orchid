@@ -7,6 +7,18 @@ import (
 )
 
 func TestTable_New(t *testing.T) {
+	t.Run("Hint", func(t *testing.T) {
+		table := NewTable("test")
+		assert.Equal(t, "t", table.Hint)
+
+		table = NewTable("test_test_test")
+		assert.Equal(t, "ttt", table.Hint)
+
+		table = NewTable("TEST_TEST_TEST")
+		assert.Equal(t, "ttt", table.Hint)
+		assert.Equal(t, "test_test_test", table.Name)
+	})
+
 	t.Run("AddSerialPK", func(t *testing.T) {
 		table := NewTable("test")
 		table.AddSerialPK()
@@ -44,11 +56,17 @@ func TestTable_New(t *testing.T) {
 		assert.Equal(t, "onTable", table.ForeignKeyTable("column"))
 	})
 
-	t.Run("ColumnNames", func(t *testing.T) {
+	t.Run("column-names...", func(t *testing.T) {
 		table := NewTable("test")
 		table.AddBigIntFK("column", "onTable", PKColumnName, true)
 
+		assert.NotNil(t, table.GetColumn("column"))
+
 		assert.Equal(t, []string{"column"}, table.ColumNames())
+		assert.Equal(t, []string{}, table.ColumnNamesStripped())
+
+		assert.Len(t, table.ForeignKeys(), 1)
+		assert.Equal(t, "onTable", table.ForeignKeyTable("column"))
 	})
 
 	t.Run("String", func(t *testing.T) {
@@ -56,5 +74,6 @@ func TestTable_New(t *testing.T) {
 		createTable := table.String()
 
 		assert.NotEmpty(t, createTable)
+		assert.Contains(t, createTable, "create table")
 	})
 }

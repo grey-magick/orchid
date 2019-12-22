@@ -38,60 +38,9 @@ func (t *Table) hasContraint(contratintType, columnName string) bool {
 	return false
 }
 
-// GetColumn return the instance of column based on name.
-func (t *Table) GetColumn(name string) *Column {
-	for _, column := range t.Columns {
-		if name == column.Name {
-			return column
-		}
-	}
-	return nil
-}
-
-// ColumnNamesStripped list of column names where primary-key, foregin-keys and other special
-// column names are not listed.
-func (t *Table) ColumnNamesStripped() []string {
-	names := make([]string, 0, len(t.Columns)-1)
-	for _, column := range t.ColumNames() {
-		if t.IsForeignKey(column) {
-			continue
-		}
-		names = append(names, column)
-	}
-	return names
-}
-
-// ForeignKeys return a list of foreign-keys constraints for table.
-func (t *Table) ForeignKeys() []*Constraint {
-	fks := []*Constraint{}
-	for _, constraint := range t.Constraints {
-		if constraint.Type != PgConstraintFK {
-			continue
-		}
-		fks = append(fks, constraint)
-	}
-	return fks
-}
-
-// String print out table creation SQL statement, and alter-table statement to include foreign keys
-// IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
-func (t *Table) IsPrimaryKey(columnName string) bool {
-	return t.hasContraint(PgConstraintPK, columnName)
-}
-
-// IsForeignKey inspect constraints to check if a foreign-key is set to column name.
-func (t *Table) IsForeignKey(columnName string) bool {
-	return t.hasContraint(PgConstraintFK, columnName)
-}
-
-// ForeignKeyTable in case of columnName being a foreign key, returning the table name it points to.
-func (t *Table) ForeignKeyTable(columnName string) string {
-	for _, constraint := range t.Constraints {
-		if constraint.ColumnName == columnName && constraint.Type == PgConstraintFK {
-			return constraint.RelatedTableName
-		}
-	}
-	return ""
+// AddColumn append a new column.
+func (t *Table) AddColumn(column *Column) {
+	t.Columns = append(t.Columns, column)
 }
 
 // AddConstraint add a new constraint.
@@ -132,9 +81,25 @@ func (t *Table) AddBigIntFK(
 	})
 }
 
-// AddColumn append a new column.
-func (t *Table) AddColumn(column *Column) {
-	t.Columns = append(t.Columns, column)
+// GetColumn return the instance of column based on name.
+func (t *Table) GetColumn(name string) *Column {
+	for _, column := range t.Columns {
+		if name == column.Name {
+			return column
+		}
+	}
+	return nil
+}
+
+// String print out table creation SQL statement, and alter-table statement to include foreign keys
+// IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
+func (t *Table) IsPrimaryKey(columnName string) bool {
+	return t.hasContraint(PgConstraintPK, columnName)
+}
+
+// IsForeignKey inspect constraints to check if a foreign-key is set to column name.
+func (t *Table) IsForeignKey(columnName string) bool {
+	return t.hasContraint(PgConstraintFK, columnName)
 }
 
 // ColumNames return a slice of column names, without primary key included.
@@ -147,6 +112,41 @@ func (t *Table) ColumNames() []string {
 		names = append(names, column.Name)
 	}
 	return names
+}
+
+// ColumnNamesStripped list of column names where primary-key, foregin-keys and other special
+// column names are not listed.
+func (t *Table) ColumnNamesStripped() []string {
+	names := make([]string, 0, len(t.Columns)-1)
+	for _, column := range t.ColumNames() {
+		if t.IsForeignKey(column) {
+			continue
+		}
+		names = append(names, column)
+	}
+	return names
+}
+
+// ForeignKeys return a list of foreign-keys constraints for table.
+func (t *Table) ForeignKeys() []*Constraint {
+	fks := []*Constraint{}
+	for _, constraint := range t.Constraints {
+		if constraint.Type != PgConstraintFK {
+			continue
+		}
+		fks = append(fks, constraint)
+	}
+	return fks
+}
+
+// ForeignKeyTable in case of columnName being a foreign key, returning the table name it points to.
+func (t *Table) ForeignKeyTable(columnName string) string {
+	for _, constraint := range t.Constraints {
+		if constraint.ColumnName == columnName && constraint.Type == PgConstraintFK {
+			return constraint.RelatedTableName
+		}
+	}
+	return ""
 }
 
 // String returns the respective create table statement.
