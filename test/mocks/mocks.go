@@ -87,14 +87,12 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 			APIVersion: "manager1/v1",
 			Time:       &now,
 			Operation:  metav1.ManagedFieldsOperationApply,
-			FieldsType: "field-type",
 		},
 		{
 			Manager:    "manager2",
 			APIVersion: "manager2/v1",
 			Time:       &now,
 			Operation:  metav1.ManagedFieldsOperationUpdate,
-			FieldsType: "field-type",
 		},
 	})
 	u.SetNamespace("namespace")
@@ -224,3 +222,43 @@ func CRDMock() extv1beta1.CustomResourceDefinition {
 		Status: extv1beta1.CustomResourceDefinitionStatus{},
 	}
 }
+
+// func RepositoryArgumentsMock() map[string][][]interface{} {
+// 	generation := int64(1)
+// 	return map[string][][]interface{}{
+// 		"cr": [][]interface{}{
+// 			[]interface{}{"Custom", "mock/v1"},
+// 		},
+// 		"cr_metadata": [][]interface{}{
+// 			[]interface{}{
+// 				"cluster-name", "2019-12-20T08:55:26Z", "generated-name", "v1", generation,
+// 				"testing", sql.NullString{String: "", Valid: false}, "self-link",
+// 				"uid", sql.NullInt64{Int64: 0, Valid: false}, "namespace",
+// 				"2019-12-20T08:55:26Z",
+// 			},
+// 		},
+// 		"cr_metadata_annotations": [][]interface{}{
+// 			[]interface{}{"annotation", "annotation"},
+// 		},
+// 		"cr_metadata_labels": [][]interface{}{
+// 			[]interface{}{"label", "label"},
+// 		},
+// 		"cr_metadata_managedfields": [][]interface{}{
+// 			[]interface{}{"manager1/v1", "manager1", "Apply", "2019-12-20T07:14:32Z"},
+// 			[]interface{}{"manager2/v1", "manager2", "Update", "2019-12-20T07:14:32Z"},
+// 		},
+// 		"cr_metadata_ownerreferences": [][]interface{}{
+// 			[]interface{}{true, "Owner1", "ownername1", "owner1-uid", "owner/v1", true},
+// 			[]interface{}{true, "Owner2", "ownername2", "owner2-uid", "owner/v2", true},
+// 		},
+// 		"cr_spec": [][]interface{}{
+// 			[]interface{}{"11"},
+// 		},
+// 		"cr_spec_complex": [][]interface{}{
+// 			[]interface{}{"11"},
+// 		},
+// 		"cr_spec_complex_complex_nested": [][]interface{}{
+// 			[]interface{}{"string attribute"},
+// 		},
+// 	}
+// }
