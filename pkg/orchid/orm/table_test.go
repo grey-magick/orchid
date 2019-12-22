@@ -28,12 +28,12 @@ func TestTable_New(t *testing.T) {
 		assert.Len(t, table.Constraints, 1)
 		assert.Equal(t, PgConstraintPK, table.Constraints[0].Type)
 
-		assert.True(t, table.IsPrimaryKey("id"))
+		assert.True(t, table.IsPrimaryKey(PKColumnName))
 	})
 
 	t.Run("AddBigIntFK", func(t *testing.T) {
 		table := NewTable("test")
-		table.AddBigIntFK("column", "onTable", "id", false)
+		table.AddBigIntFK("column", "onTable", PKColumnName, false)
 
 		assert.Len(t, table.Columns, 1)
 		assert.Equal(t, PgTypeBigInt, table.Columns[0].Type)
@@ -46,7 +46,7 @@ func TestTable_New(t *testing.T) {
 
 	t.Run("ColumnNames", func(t *testing.T) {
 		table := NewTable("test")
-		table.AddBigIntFK("column", "onTable", "id", true)
+		table.AddBigIntFK("column", "onTable", PKColumnName, true)
 
 		assert.Equal(t, []string{"column"}, table.ColumNames())
 	})

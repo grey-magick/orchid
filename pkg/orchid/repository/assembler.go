@@ -139,7 +139,7 @@ func (a *Assembler) createObject(tableName string, pk interface{}) (map[string]i
 // Build create unstructured objects out of result-set.
 func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 	// getting the primary-keys for schema named table
-	pks, err := a.resultSet.GetColumn(a.schema.Name, "id")
+	pks, err := a.resultSet.GetColumn(a.schema.Name, orm.PKColumnName)
 	if err != nil {
 		return nil, err
 	}

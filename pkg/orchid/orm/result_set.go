@@ -65,16 +65,16 @@ func (r *ResultSet) GetPK(tableName string, pk interface{}) (Entry, error) {
 	// FIXME: why having to lower it here?
 	tableName = strings.ToLower(tableName)
 
-	entries, err := r.Get(tableName, "id", pk)
+	entries, err := r.Get(tableName, PKColumnName, pk)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("unable to find data for '%s.id'='%v'", tableName, pk)
+		return nil, fmt.Errorf("unable to find data for '%s.%s'='%v'", tableName, PKColumnName, pk)
 	}
 	if len(entries) > 1 {
-		return nil, fmt.Errorf("too many results for for '%s.id'='%v'", tableName, pk)
+		return nil, fmt.Errorf("too many results for for '%s.%s'='%v'", tableName, PKColumnName, pk)
 	}
 	return entries[0], nil
 }
@@ -142,7 +142,7 @@ func (r *ResultSet) buildMappedMatrix(columnIDs map[string]int, matrix []List) e
 			if !found {
 				continue
 			}
-			pk, found := entry["id"]
+			pk, found := entry[PKColumnName]
 			if !found {
 				continue
 			}

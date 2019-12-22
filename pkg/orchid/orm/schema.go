@@ -192,7 +192,7 @@ func (s *Schema) handleObject(
 		// managing an one-to-one relationship, this table will keep a foreign-key pointing to the
 		// next table to be created by primary-key
 		if table.GetColumn(relatedTableName) == nil {
-			table.AddBigIntFK(columnName, relatedTableName, "id", notNull)
+			table.AddBigIntFK(columnName, relatedTableName, PKColumnName, notNull)
 			table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: columnName})
 		}
 	} else {
@@ -210,7 +210,7 @@ func (s *Schema) handleObject(
 			Type:              PgConstraintFK,
 			ColumnName:        table.Name,
 			RelatedTableName:  table.Name,
-			RelatedColumnName: "id",
+			RelatedColumnName: PKColumnName,
 		})
 	}
 
@@ -234,7 +234,7 @@ func (s *Schema) handleArray(
 			Type:              PgConstraintFK,
 			ColumnName:        table.Name,
 			RelatedTableName:  table.Name,
-			RelatedColumnName: "id",
+			RelatedColumnName: PKColumnName,
 		}
 		relationship := Relationship{
 			Path:        append(table.Path, columnName),

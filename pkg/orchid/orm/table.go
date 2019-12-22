@@ -16,6 +16,9 @@ type Table struct {
 	KV          bool          // meant for key-value store
 }
 
+// PKColumnName primary-key column name
+const PKColumnName = "id"
+
 // buildHint create a hint out of a name, by splitting on underscore and using the first charactere.
 func (t *Table) buildHint() {
 	var short string
@@ -98,16 +101,14 @@ func (t *Table) AddConstraint(constraint *Constraint) {
 
 // AddSerialPK add a new column as primary-key, using serial8 type.
 func (t *Table) AddSerialPK() {
-	columnName := "id"
-	t.AddColumn(&Column{Name: columnName, Type: PgTypeSerial8})
-	t.AddConstraint(&Constraint{Type: PgConstraintPK, ColumnName: columnName})
+	t.AddColumn(&Column{Name: PKColumnName, Type: PgTypeSerial8})
+	t.AddConstraint(&Constraint{Type: PgConstraintPK, ColumnName: PKColumnName})
 }
 
 // AddBigIntPK add a new column as a primary-key, using BigInt type.
 func (t *Table) AddBigIntPK() {
-	columnName := "id"
-	t.AddColumn(&Column{Name: columnName, Type: PgTypeBigInt})
-	t.AddConstraint(&Constraint{Type: PgConstraintPK, ColumnName: columnName})
+	t.AddColumn(&Column{Name: PKColumnName, Type: PgTypeBigInt})
+	t.AddConstraint(&Constraint{Type: PgConstraintPK, ColumnName: PKColumnName})
 }
 
 // AddForeignKey adds a new column with foreign-key constraint.

@@ -21,10 +21,11 @@ func InsertStatement(schema *Schema) []string {
 	for _, table := range schema.Tables {
 		columnNames := table.ColumNames()
 		insert := fmt.Sprintf(
-			"insert into %s (%s) values (%s) returning id",
+			"insert into %s (%s) values (%s) returning %s",
 			table.Name,
 			strings.Join(columnNames, ", "),
 			strings.Join(valuesPlaceholders(len(columnNames)), ", "),
+			PKColumnName,
 		)
 		inserts = append(inserts, insert)
 	}
@@ -39,7 +40,9 @@ func SelectStatement(schema *Schema, where []string) string {
 
 	for _, table := range schema.TablesReversed() {
 		statementColumns = append(
-			statementColumns, fmt.Sprintf("%s.id as \"%s.id\"", table.Hint, table.Hint))
+			statementColumns,
+			fmt.Sprintf("%s.%s as \"%s.%s\"", table.Hint, PKColumnName, table.Hint, PKColumnName),
+		)
 		for _, column := range table.ColumNames() {
 			statementColumns = append(statementColumns,
 				fmt.Sprintf("%s.%s as \"%s.%s\"", table.Hint, column, table.Hint, column))
