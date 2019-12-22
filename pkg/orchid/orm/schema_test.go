@@ -30,8 +30,8 @@ func assertJsonSchemaVsORMSchema(
 		t.Logf("table-name='%s'", tableName)
 		require.NotEmpty(t, tableName)
 
-		objectTable := schema.GetTable(tableName)
-		if objectTable == nil {
+		objectTable, err := schema.GetTable(tableName)
+		if err != nil {
 			continue
 		}
 
@@ -53,7 +53,8 @@ func TestSchema_CR(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, len(schema.Tables) > 1)
 
-		table := schema.GetTable(schemaName)
+		table, err := schema.GetTable(schemaName)
+		assert.NoError(t, err)
 		assert.NotNil(t, table)
 		assertJsonSchemaVsORMSchema(t, schema, table, apiSchema.Properties)
 	})
@@ -88,7 +89,8 @@ func TestSchema_ObjectMeta(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, len(schema.Tables) > 1)
 
-	table := schema.GetTable(schemaName)
+	table, err := schema.GetTable(schemaName)
+	assert.NoError(t, err)
 	assert.NotNil(t, table)
 
 	assertJsonSchemaVsORMSchema(t, schema, table, apiSchema.Properties)

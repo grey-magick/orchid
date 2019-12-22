@@ -8,6 +8,7 @@ import (
 // Table represents database table with columns and constraints.
 type Table struct {
 	Name        string        // table name
+	Hint        string        // short table name
 	Path        []string      // path to the node in the Orchid object
 	Columns     []*Column     // table columns
 	Constraints []*Constraint // constraints
@@ -15,14 +16,13 @@ type Table struct {
 	KV          bool          // meant for key-value store
 }
 
-// GetColumn return the instance of column based on name.
-func (t *Table) GetColumn(name string) *Column {
-	for _, column := range t.Columns {
-		if name == column.Name {
-			return column
-		}
+// buildHint create a hint out of a name, by splitting on underscore and using the first charactere.
+func (t *Table) buildHint() {
+	var short string
+	for _, section := range strings.Split(t.Name, "_") {
+		short = fmt.Sprintf("%s%s", short, string(section[0]))
 	}
-	return nil
+	t.Hint = strings.ToLower(short)
 }
 
 // hasContraint check slice of contraint for a given constraint type and column name.
@@ -35,6 +35,42 @@ func (t *Table) hasContraint(contratintType, columnName string) bool {
 	return false
 }
 
+// GetColumn return the instance of column based on name.
+func (t *Table) GetColumn(name string) *Column {
+	for _, column := range t.Columns {
+		if name == column.Name {
+			return column
+		}
+	}
+	return nil
+}
+
+// ColumnNamesStripped list of column names where primary-key, foregin-keys and other special
+// column names are not listed.
+func (t *Table) ColumnNamesStripped() []string {
+	names := make([]string, 0, len(t.Columns)-1)
+	for _, column := range t.ColumNames() {
+		if t.IsForeignKey(column) {
+			continue
+		}
+		names = append(names, column)
+	}
+	return names
+}
+
+// ForeignKeys return a list of foreign-keys constraints for table.
+func (t *Table) ForeignKeys() []*Constraint {
+	fks := []*Constraint{}
+	for _, constraint := range t.Constraints {
+		if constraint.Type != PgConstraintFK {
+			continue
+		}
+		fks = append(fks, constraint)
+	}
+	return fks
+}
+
+// String print out table creation SQL statement, and alter-table statement to include foreign keys
 // IsPrimaryKey inspect table's constraints to check if informed column name is primary key.
 func (t *Table) IsPrimaryKey(columnName string) bool {
 	return t.hasContraint(PgConstraintPK, columnName)
@@ -100,9 +136,9 @@ func (t *Table) AddColumn(column *Column) {
 	t.Columns = append(t.Columns, column)
 }
 
-// ColumNames return a slice of column names.
+// ColumNames return a slice of column names, without primary key included.
 func (t *Table) ColumNames() []string {
-	names := []string{}
+	names := make([]string, 0, len(t.Columns)-1)
 	for _, column := range t.Columns {
 		if column.Type == PgTypeSerial8 {
 			continue
@@ -112,8 +148,7 @@ func (t *Table) ColumNames() []string {
 	return names
 }
 
-// String print out table creation SQL statement, and alter-table statement to include foreign keys
-// later in the process.
+// String returns the respective create table statement.
 func (t *Table) String() string {
 	columns := []string{}
 	for _, column := range t.Columns {
@@ -131,5 +166,7 @@ func (t *Table) String() string {
 
 // NewTable instantiate a new Table.
 func NewTable(name string) *Table {
-	return &Table{Name: name}
+	table := &Table{Name: strings.ToLower(name)}
+	table.buildHint()
+	return table
 }

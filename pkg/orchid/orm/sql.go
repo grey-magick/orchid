@@ -5,22 +5,8 @@ import (
 	"strings"
 )
 
-// SQL represent the SQL statements.
-type SQL struct {
-	schema *Schema // ORM schema
-}
-
-// hint create a hint out of a name, by splitting on underscore and using the first charactere.
-func (s *SQL) hint(name string) string {
-	var short string
-	for _, section := range strings.Split(name, "_") {
-		short = fmt.Sprintf("%s%s", short, string(section[0]))
-	}
-	return strings.ToLower(short)
-}
-
 // valuesPlaceholders creates dollar based notation for the amount specified.
-func (s *SQL) valuesPlaceholders(amount int) []string {
+func valuesPlaceholders(amount int) []string {
 	placeholders := []string{}
 	for i := 1; i <= amount; i++ {
 		placeholders = append(placeholders, fmt.Sprintf("$%d", i))
@@ -28,69 +14,67 @@ func (s *SQL) valuesPlaceholders(amount int) []string {
 	return placeholders
 }
 
-// Insert generates a slice of inserts following the same tables sequence. Inserts carry "returning"
-// therefore should always return "id" column value.
-func (s *SQL) Insert() []string {
+// InsertStatement generates a slice of inserts following the same tables sequence. Inserts carry
+// "returning" therefore should always return "id" column value.
+func InsertStatement(schema *Schema) []string {
 	inserts := []string{}
-	for _, table := range s.schema.Tables {
+	for _, table := range schema.Tables {
 		columnNames := table.ColumNames()
 		insert := fmt.Sprintf(
 			"insert into %s (%s) values (%s) returning id",
 			table.Name,
 			strings.Join(columnNames, ", "),
-			strings.Join(s.valuesPlaceholders(len(columnNames)), ", "),
+			strings.Join(valuesPlaceholders(len(columnNames)), ", "),
 		)
 		inserts = append(inserts, insert)
 	}
 	return inserts
 }
 
-// Select generates a select statement for the schema.
-func (s *SQL) Select() string {
-	columns := []string{}
-	from := []string{}
-	where := []string{}
+// SelectStatement generates a select statement for the schema, using where clause informed. Where
+func SelectStatement(schema *Schema, where []string) string {
+	statementColumns := []string{}
+	statementFrom := []string{}
+	statementWhere := []string{}
 
-	for _, table := range s.schema.TablesReversed() {
-		tableName := table.Name
-
+	for _, table := range schema.TablesReversed() {
+		statementColumns = append(
+			statementColumns, fmt.Sprintf("%s.id as \"%s.id\"", table.Hint, table.Hint))
 		for _, column := range table.ColumNames() {
-			columns = append(columns, fmt.Sprintf("%s.%s", s.hint(tableName), column))
+			statementColumns = append(statementColumns,
+				fmt.Sprintf("%s.%s as \"%s.%s\"", table.Hint, column, table.Hint, column))
 		}
 
 		for _, constraint := range table.Constraints {
 			if constraint.Type != PgConstraintFK {
 				continue
 			}
-			where = append(where, fmt.Sprintf("%s.%s=%s.%s",
-				s.hint(constraint.RelatedTableName),
+			statementWhere = append(statementWhere, fmt.Sprintf("%s.%s=%s.%s",
+				schema.GetHint(constraint.RelatedTableName),
 				constraint.RelatedColumnName,
-				s.hint(tableName),
+				table.Hint,
 				constraint.ColumnName,
 			))
 		}
 
-		from = append(from, fmt.Sprintf("%s %s", tableName, s.hint(tableName)))
+		statementFrom = append(statementFrom, fmt.Sprintf("%s %s", table.Name, table.Hint))
 	}
-
+	for i, clause := range where {
+		statementWhere = append(statementWhere, fmt.Sprintf("%s=$%d", clause, i+1))
+	}
 	return fmt.Sprintf(
 		"select %s from %s where %s",
-		strings.Join(columns, ", "),
-		strings.Join(from, ", "),
-		strings.Join(where, " and "),
+		strings.Join(statementColumns, ", "),
+		strings.Join(statementFrom, ", "),
+		strings.Join(statementWhere, " and "),
 	)
 }
 
-// CreateTables return the statements needed to create table and add foreign keys.
-func (s *SQL) CreateTables() []string {
+// CreateTablesStatement return the statements needed to create table and add foreign keys.
+func CreateTablesStatement(schema *Schema) []string {
 	createTables := []string{}
-	for _, table := range s.schema.Tables {
+	for _, table := range schema.Tables {
 		createTables = append(createTables, table.String())
 	}
 	return createTables
-}
-
-// NewSQL instantiate an SQL.
-func NewSQL(schema *Schema) *SQL {
-	return &SQL{schema: schema}
 }

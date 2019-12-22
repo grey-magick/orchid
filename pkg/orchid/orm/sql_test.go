@@ -9,7 +9,7 @@ import (
 	"github.com/isutton/orchid/test/mocks"
 )
 
-func TestSQL_New(t *testing.T) {
+func TestSQL(t *testing.T) {
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema("cr")
 
@@ -18,10 +18,8 @@ func TestSQL_New(t *testing.T) {
 
 	expectedAmountOfTables := len(schema.Tables)
 
-	sqlLib := NewSQL(schema)
-
 	t.Run("CreateTables", func(t *testing.T) {
-		createTableStmts := sqlLib.CreateTables()
+		createTableStmts := CreateTablesStatement(schema)
 		assert.True(t, len(createTableStmts) >= expectedAmountOfTables)
 
 		for _, statement := range createTableStmts {
@@ -35,7 +33,7 @@ func TestSQL_New(t *testing.T) {
 	})
 
 	t.Run("Insert", func(t *testing.T) {
-		insertStmts := sqlLib.Insert()
+		insertStmts := InsertStatement(schema)
 		assert.Len(t, insertStmts, expectedAmountOfTables)
 
 		for _, statement := range insertStmts {
@@ -45,7 +43,7 @@ func TestSQL_New(t *testing.T) {
 	})
 
 	t.Run("Select", func(t *testing.T) {
-		selectStmt := sqlLib.Select()
+		selectStmt := SelectStatement(schema, nil)
 		t.Logf("select='%s'", selectStmt)
 	})
 }

@@ -22,30 +22,9 @@ type Relationship struct {
 	KV          bool          // key-value flag
 }
 
-// withPath returns the table instance having informed path, or nil.
-func (s *Schema) withPath(fieldPath []string) *Table {
-	for _, table := range s.Tables {
-		if len(fieldPath) != len(table.Path) {
-			continue
-		}
-		equals := true
-		for i, field := range fieldPath {
-			if table.Path[i] != field {
-				equals = false
-				break
-			}
-		}
-		if !equals {
-			continue
-		}
-		return table
-	}
-	return nil
-}
-
 // HasOneToMany checks if a table matching fieldPath is one-to-many
 func (s *Schema) HasOneToMany(fieldPath []string) bool {
-	table := s.withPath(fieldPath)
+	table := s.GetTableByPath(fieldPath)
 	if table == nil {
 		return false
 	}
@@ -54,11 +33,20 @@ func (s *Schema) HasOneToMany(fieldPath []string) bool {
 
 // IsKV checks if a table matching fieldPath is key-value.
 func (s *Schema) IsKV(fieldPath []string) bool {
-	table := s.withPath(fieldPath)
+	table := s.GetTableByPath(fieldPath)
 	if table == nil {
 		return false
 	}
 	return table.KV
+}
+
+// GetHint based on table's name return its hint.
+func (s *Schema) GetHint(tableName string) string {
+	table, err := s.GetTable(tableName)
+	if err != nil {
+		return ""
+	}
+	return table.Hint
 }
 
 // handleArray creates an array column.
@@ -94,14 +82,58 @@ func (s *Schema) TableFactory(tableName string, appendTable bool) *Table {
 	return table
 }
 
+// TODO: return table and error, so other components don't need to write down the same err;
 // GetTable returns a table instance, if exists.
-func (s *Schema) GetTable(tableName string) *Table {
+func (s *Schema) GetTable(tableName string) (*Table, error) {
+	tableName = strings.ToLower(tableName)
 	for _, table := range s.Tables {
 		if tableName == table.Name {
-			return table
+			return table, nil
 		}
 	}
+	return nil, fmt.Errorf("unable to find table '%s' in schema", tableName)
+}
+
+// GetTableByPath returns the table instance having informed path, or nil.
+func (s *Schema) GetTableByPath(fieldPath []string) *Table {
+	for _, table := range s.Tables {
+		if len(fieldPath) != len(table.Path) {
+			continue
+		}
+		equals := true
+		for i, field := range fieldPath {
+			if table.Path[i] != field {
+				equals = false
+				break
+			}
+		}
+		if !equals {
+			continue
+		}
+		return table
+	}
 	return nil
+}
+
+// FIXME: rename it;
+func (s *Schema) OneToManyTables(tableName string) []string {
+	tables := []string{}
+	for _, table := range s.Tables {
+		if tableName == table.Name {
+			continue
+		}
+
+		for _, constraint := range table.ForeignKeys() {
+			if constraint.ColumnName != tableName {
+				continue
+			}
+			if constraint.RelatedTableName != tableName {
+				continue
+			}
+			tables = append(tables, table.Name)
+		}
+	}
+	return tables
 }
 
 // TablesReversed reverse list of tables in Schema.
