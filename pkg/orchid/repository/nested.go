@@ -11,27 +11,7 @@ import (
 type Nested struct {
 	schema *orm.Schema
 	obj    map[string]interface{}
-	lines  []map[string]interface{}
-}
-
-// decomposePaths based on field path, it will check against schema for one-to-many relationships,
-// in this case the path is decomposed to reflect nested data. It returns a slice of slices, on
-// which inner level represents individual paths.
-func (n *Nested) decomposePaths(fieldPath []string) [][]string {
-	decomposed := [][]string{}
-	currentPath := []string{}
-	for _, field := range fieldPath {
-		currentPath = append(currentPath, field)
-
-		if n.schema.HasOneToMany(currentPath) {
-			decomposed = append(decomposed, currentPath)
-			currentPath = []string{}
-		}
-	}
-	if len(currentPath) > 0 {
-		decomposed = append(decomposed, currentPath)
-	}
-	return decomposed
+	lines  []orm.Entry
 }
 
 // nestedExtract recursively extract decomposed-paths in order to return a list of lines, in other
@@ -91,14 +71,14 @@ func (n *Nested) nestedExtract(
 
 // Extract recursively extract field-path from unstructured object, returning an array of maps,
 // representing the lines found for that entity. It can return errors on navigating unstructured.
-func (n *Nested) Extract(fieldPath []string) ([]map[string]interface{}, error) {
-	decomposed := n.decomposePaths(fieldPath)
+func (n *Nested) Extract(fieldPath []string) ([]orm.Entry, error) {
+	decomposed := decomposePaths(n.schema, fieldPath)
 	decomposedLen := len(decomposed)
 	if decomposedLen == 0 {
 		return nil, fmt.Errorf("empty field-path informed, data is not nested!")
 	}
 
-	n.lines = make([]map[string]interface{}, 0)
+	n.lines = []orm.Entry{}
 	if err := n.nestedExtract(n.obj, decomposed, []string{}); err != nil {
 		return nil, err
 	}

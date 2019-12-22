@@ -48,14 +48,6 @@ func TestNested_New(t *testing.T) {
 
 	nested := NewNested(schema, u.Object)
 
-	t.Run("decomposePaths", func(t *testing.T) {
-		decomposedNested := nested.decomposePaths(portsFieldPath)
-		t.Logf("decomposedNested='%+v'", decomposedNested)
-
-		decomposed := nested.decomposePaths(specobjectMetaFiledPath)
-		t.Logf("decomposed='%+v'", decomposed)
-	})
-
 	t.Run("Extract", func(t *testing.T) {
 		containers, err := nested.Extract(containersFieldPath)
 		assert.NoError(t, err)

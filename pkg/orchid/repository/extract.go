@@ -118,10 +118,10 @@ func extractPath(
 	return data, err
 }
 
-func extractKV(obj map[string]interface{}) [][]interface{} {
-	data := make([][]interface{}, 0, len(obj))
+func extractKV(obj map[string]interface{}) []orm.List {
+	data := make([]orm.List, 0, len(obj))
 	for k, v := range obj {
-		data = append(data, []interface{}{k, v})
+		data = append(data, orm.List{k, v})
 	}
 	return data
 }
@@ -130,7 +130,7 @@ func extractColumns(
 	obj map[string]interface{},
 	fieldPath []string,
 	table *orm.Table,
-) ([]interface{}, error) {
+) (orm.List, error) {
 	dataColumns := []interface{}{}
 	for _, column := range table.Columns {
 		if table.IsPrimaryKey(column.Name) || table.IsForeignKey(column.Name) {

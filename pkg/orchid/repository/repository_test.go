@@ -1,11 +1,12 @@
 package repository
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
 	"github.com/isutton/orchid/test/mocks"
@@ -32,17 +33,33 @@ func TestRepository_New(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	cr, err := mocks.UnstructuredCRMock()
+	require.NoError(t, err)
+	t.Logf("cr='%#v'", cr)
+
+	_, err = pgORM.DB.Query("truncate table mock_v1_custom cascade")
+	require.NoError(t, err)
+
 	t.Run("Create-CR", func(t *testing.T) {
-		cr, err := mocks.UnstructuredCRMock()
+		err = repo.Create(cr)
+		require.NoError(t, err)
+	})
+
+	t.Run("Read-CR", func(t *testing.T) {
+		gvk := cr.GetObjectKind().GroupVersionKind()
+		namespacedName := types.NamespacedName{
+			Namespace: cr.GetNamespace(),
+			Name:      cr.GetName(),
+		}
+		u, err := repo.Read(gvk, namespacedName)
 		require.NoError(t, err)
 
-		t.Logf("cr='%+v'", cr)
+		t.Logf("u='%#v'", u)
 
-		err = repo.Create(cr)
-		assert.NoError(t, err)
-
-		schemaName := repo.schemaName(cr.GetObjectKind().GroupVersionKind())
-		sqlLib := orm.NewSQL(repo.schemaFactory(schemaName))
-		fmt.Println(sqlLib.Select())
+		t.Log("## comparing original and obtained unstructured")
+		diff := deep.Equal(cr, u)
+		for _, entry := range diff {
+			t.Log(entry)
+		}
 	})
 }

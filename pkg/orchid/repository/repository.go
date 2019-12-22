@@ -2,9 +2,11 @@ package repository
 
 import (
 	"fmt"
+	"log"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
@@ -63,9 +65,9 @@ func (r *Repository) createCRTables(u *unstructured.Unstructured) error {
 func (r *Repository) prepareCRD(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
-) (map[string][][]interface{}, error) {
+) (orm.MappedMatrix, error) {
 	obj := u.Object
-	crd := map[string][][]interface{}{}
+	crd := make(orm.MappedMatrix)
 
 	for _, table := range s.Tables {
 		dataColumns := []interface{}{}
@@ -109,16 +111,16 @@ func (r *Repository) prepareCRD(
 func (r *Repository) prepareCR(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
-) (map[string][][]interface{}, error) {
+) (orm.MappedMatrix, error) {
 	obj := u.Object
-	cr := map[string][][]interface{}{}
+	cr := orm.MappedMatrix{}
 	nested := NewNested(s, obj)
 
 	for _, table := range s.Tables {
 		fieldPath := table.Path
-		dataTable := [][]interface{}{}
+		dataTable := []orm.List{}
 
-		extracted := make([]map[string]interface{}, 0)
+		extracted := make([]orm.Entry, 0)
 		if len(fieldPath) == 0 {
 			extracted = append(extracted, obj)
 		} else {
@@ -154,7 +156,7 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 	s := r.schemaFactory(r.schemaName(gvk))
 
 	// slice of slices to capture insert data per table
-	var arguments map[string][][]interface{}
+	var arguments orm.MappedMatrix
 	var err error
 	if gvk.String() == crdGVK.String() {
 		if arguments, err = r.prepareCRD(s, u); err != nil {
@@ -173,6 +175,35 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 		return fmt.Errorf("unable to parse arguments from object")
 	}
 	return r.orm.Create(s, arguments)
+}
+
+func (r *Repository) Read(
+	gvk schema.GroupVersionKind,
+	namespacedName types.NamespacedName,
+) (*unstructured.Unstructured, error) {
+	s := r.schemaFactory(r.schemaName(gvk))
+
+	resultSet, err := r.orm.Read(s, namespacedName)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range resultSet.Data {
+		log.Printf("hint='%s', data='%+v'", k, v)
+	}
+
+	assembler := NewAssembler(s, resultSet)
+	objects, err := assembler.Build()
+	if err != nil {
+		return nil, err
+	}
+	if len(objects) > 1 {
+		log.Printf("WARNING: unexpected number of objects '%d'!", len(objects))
+	}
+
+	u := objects[0]
+	u.SetGroupVersionKind(gvk)
+	return u, nil
 }
 
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
