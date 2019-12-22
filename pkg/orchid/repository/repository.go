@@ -119,8 +119,8 @@ func (r *Repository) prepareCR(
 	for _, table := range s.Tables {
 		fieldPath := table.Path
 		dataTable := []orm.List{}
+		extracted := []orm.Entry{}
 
-		extracted := make([]orm.Entry, 0)
 		if len(fieldPath) == 0 {
 			extracted = append(extracted, obj)
 		} else {
