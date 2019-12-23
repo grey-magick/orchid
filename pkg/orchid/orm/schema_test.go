@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/test/mocks"
 )
@@ -45,7 +46,9 @@ func assertJsonSchemaVsORMSchema(
 func TestSchema_CR(t *testing.T) {
 	apiSchema := mocks.OpenAPIV3SchemaMock()
 	schemaName := "cr"
-	schema := NewSchema(schemaName)
+
+	logger := klogr.New().WithName("test")
+	schema := NewSchema(logger, schemaName)
 
 	t.Run("GenerateCR", func(t *testing.T) {
 		err := schema.GenerateCR(&apiSchema)
@@ -71,7 +74,8 @@ func TestSchema_CR(t *testing.T) {
 func TestSchema_CRD(t *testing.T) {
 	const expectedAmountOfTables = 1
 
-	schema := NewSchema("crd")
+	logger := klogr.New().WithName("test")
+	schema := NewSchema(logger, "crd")
 
 	schema.GenerateCRD()
 	assert.Len(t, schema.Tables, expectedAmountOfTables)
@@ -83,7 +87,8 @@ func TestSchema_ObjectMeta(t *testing.T) {
 		"metadata": jsonSchemaProps(JSTypeObject, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
 	})
 
-	schema := NewSchema(schemaName)
+	logger := klogr.New().WithName("test")
+	schema := NewSchema(logger, schemaName)
 	err := schema.GenerateCR(&apiSchema)
 
 	require.NoError(t, err)
