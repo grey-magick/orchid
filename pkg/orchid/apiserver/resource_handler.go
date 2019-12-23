@@ -78,22 +78,37 @@ func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntim
 
 // APIGroupLister lists API groups.
 func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.Object {
-	return &metav1.APIGroupList{
-		Groups: []metav1.APIGroup{
-			{
-				Name: examplesGroup,
-				PreferredVersion: metav1.GroupVersionForDiscovery{
+	crdAPIGroups := h.CRDAPIGroups()
+	groups := []metav1.APIGroup{
+		{
+			Name: examplesGroup,
+			PreferredVersion: metav1.GroupVersionForDiscovery{
+				GroupVersion: examplesGroupVersion,
+				Version:      examplesVersion,
+			},
+			Versions: []metav1.GroupVersionForDiscovery{
+				{
 					GroupVersion: examplesGroupVersion,
 					Version:      examplesVersion,
 				},
-				Versions: []metav1.GroupVersionForDiscovery{
-					{
-						GroupVersion: examplesGroupVersion,
-						Version:      examplesVersion,
-					},
+			},
+		},
+		{
+			Name: crdGroup,
+			PreferredVersion: metav1.GroupVersionForDiscovery{
+				GroupVersion: crdGroupVersion,
+				Version:      crdVersion,
+			},
+			Versions: []metav1.GroupVersionForDiscovery{
+				{
+					GroupVersion: crdGroupVersion,
+					Version:      crdVersion,
 				},
 			},
 		},
+	}
+	return &metav1.APIGroupList{
+		Groups: append(groups, crdAPIGroups...),
 	}
 }
 
@@ -144,6 +159,10 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 	// used by kubectl to gather the OpenAPI specification of resources managed by this server.
 	// TODO: implement OpenAPI v2 generator from registered CRDs
 	router.HandleFunc("/openapi/v2", Adapt(h.OpenAPIHandler))
+}
+
+func (h *APIResourceHandler) CRDAPIGroups() []metav1.APIGroup {
+	return nil
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
