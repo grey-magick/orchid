@@ -29,9 +29,8 @@ var (
 )
 
 type APIResourceHandler struct {
-	// CRDService is responsible for managing CRDs.
-	CRDService repository.Repository
 	Logger     logr.Logger
+	Repository *repository.Repository
 }
 
 // ObjectLister returns a list of objects.
@@ -94,18 +93,17 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8srunt
 		panic(err)
 	}
 
-	// if isCustomResourceDefinition(obj) {
-	// 	// create all storage resources for this new object.
-	// 	var crd *v1beta1.CustomResourceDefinition
-	// 	err := yaml.Unmarshal(body, crd)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	err = h.CRDService.Create(crd)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// }
+	uObj := &map[string]interface{}{}
+	err = yaml.Unmarshal(body, uObj)
+	if err != nil {
+		panic(err)
+	}
+	u := &unstructured.Unstructured{Object: *uObj}
+	// TODO: this handler should return an error
+	err = h.Repository.Create(u)
+	if err != nil {
+		panic(err)
+	}
 
 	return obj
 }

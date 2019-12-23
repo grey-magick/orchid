@@ -9,7 +9,9 @@ import (
 	"github.com/gorilla/mux"
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/isutton/orchid/pkg/orchid/apiserver"
 	"github.com/isutton/orchid/pkg/orchid/orm"
+	"github.com/isutton/orchid/pkg/orchid/repository"
 )
 
 // Options are the server parameters.
@@ -32,9 +34,14 @@ func NewServer(logger logr.Logger, options Options) *Server {
 		panic(err)
 	}
 
+	repo := repository.NewRepository(logger, pgOrm)
+	err = repo.Bootstrap()
+	if err != nil {
+		panic(err)
+	}
 	router := mux.NewRouter()
-	// model := apiserver.NewModel(pgOrm)
-	// AddAPIResourceHandler(logger.WithName("handler"), model, router)
+	h := apiserver.NewAPIResourceHandler(logger, repo)
+	h.Register(router)
 
 	return &Server{
 		Logger: logger.WithName("server"),
