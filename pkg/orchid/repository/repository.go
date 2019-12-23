@@ -189,7 +189,7 @@ func (r *Repository) Read(
 		return nil, err
 	}
 
-	assembler := NewAssembler(s, resultSet)
+	assembler := NewAssembler(r.logger, s, resultSet)
 	objects, err := assembler.Build()
 	if err != nil {
 		return nil, err

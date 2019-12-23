@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
@@ -11,17 +12,20 @@ import (
 
 // Assembler is the component to build back unstructured objects from an orm.ResultSet.
 type Assembler struct {
+	logger    logr.Logger    // logger instance
 	schema    *orm.Schema    // ORM schema
 	resultSet *orm.ResultSet // data result-set
 }
 
-// kvObject create object based on result-set, but assume different names for columns and structure
+// keyValue create object based on result-set, but assume different names for columns and structure
 // of data as key-value only.
-func (a *Assembler) kvObject(
+func (a *Assembler) keyValue(
 	relatedTableName string,
 	tableName string,
 	pk interface{},
 ) (map[string]interface{}, error) {
+	a.logger.WithValues("related", relatedTableName, "table", tableName).
+		Info("Retrieving data to assemble key-value")
 	nestedEntries, err := a.resultSet.Get(relatedTableName, tableName, pk)
 	if err != nil {
 		return nil, err
@@ -42,13 +46,15 @@ func (a *Assembler) kvObject(
 	return item, nil
 }
 
-// sliceObject return result-set data as slice of interface.
-func (a *Assembler) sliceObject(
+// slice return result-set data as slice of interface.
+func (a *Assembler) slice(
 	relatedTableName string,
 	tableName string,
 	pk interface{},
 	columns []string,
 ) ([]interface{}, error) {
+	a.logger.WithValues("related", relatedTableName, "table", tableName, "columns", columns).
+		Info("Retrieving data to assemble slice")
 	relatedEntries, err := a.resultSet.Get(relatedTableName, tableName, pk)
 	if err != nil {
 		return nil, err
@@ -59,12 +65,12 @@ func (a *Assembler) sliceObject(
 		strippedEntry := a.resultSet.Strip(relatedEntry, columns)
 		strippedEntries = append(strippedEntries, strippedEntry)
 	}
-
-	return orm.InterfaceSliceReversed(strippedEntries), nil
+	return strippedEntries, nil
 }
 
-// relatedObject goes after one-to-many relationships.
-func (a *Assembler) relatedObject(
+// related goes after one-to-many relationships, by reaching for the results of other tables that
+// are having foregin-keys pointing back to another.
+func (a *Assembler) related(
 	relatedTableName string,
 	tableName string,
 	pk interface{},
@@ -73,6 +79,9 @@ func (a *Assembler) relatedObject(
 	if err != nil {
 		return nil, err
 	}
+
+	a.logger.WithValues("related", relatedTableName, "table", tableName).
+		Info("Retrieving data to assemble related object")
 
 	// using path to decide column's name
 	tablePathLen := len(table.Path)
@@ -83,13 +92,13 @@ func (a *Assembler) relatedObject(
 
 	entry := map[string]interface{}{}
 	if table.KV {
-		entry[columnName], err = a.kvObject(relatedTableName, tableName, pk)
+		entry[columnName], err = a.keyValue(relatedTableName, tableName, pk)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		columns := table.ColumnNamesStripped()
-		entry[columnName], err = a.sliceObject(relatedTableName, tableName, pk, columns)
+		entry[columnName], err = a.slice(relatedTableName, tableName, pk, columns)
 		if err != nil {
 			return nil, err
 		}
@@ -97,14 +106,15 @@ func (a *Assembler) relatedObject(
 	return entry, nil
 }
 
-// createObject based on table name and primary-key value, recursively create new objects and
-// enrich them with one-to-many related entries.
-func (a *Assembler) createObject(tableName string, pk interface{}) (map[string]interface{}, error) {
+// object based on table name and primary-key value, recursively create new objects when finding
+// one-to-one relationships, and enriching the current object with one-to-many related entries.
+func (a *Assembler) object(tableName string, pk interface{}) (map[string]interface{}, error) {
 	table, err := a.schema.GetTable(tableName)
 	if err != nil {
 		return nil, err
 	}
 
+	a.logger.WithValues("table", tableName).Info("Retrieving data to assemble new object")
 	entry, err := a.resultSet.GetPK(tableName, pk)
 	if err != nil {
 		return nil, err
@@ -113,7 +123,7 @@ func (a *Assembler) createObject(tableName string, pk interface{}) (map[string]i
 	// one-to-ene: when this table is refering another via foreign-keys
 	for columnName, columnValue := range entry {
 		if table.IsForeignKey(columnName) {
-			entry[columnName], err = a.createObject(table.ForeignKeyTable(columnName), columnValue)
+			entry[columnName], err = a.object(table.ForeignKeyTable(columnName), columnValue)
 			if err != nil {
 				return nil, err
 			}
@@ -124,7 +134,7 @@ func (a *Assembler) createObject(tableName string, pk interface{}) (map[string]i
 
 	// one-to-many: where other tables are having constraints pointing back to this table
 	for _, relatedTableName := range a.schema.OneToManyTables(tableName) {
-		relatedEntries, err := a.relatedObject(relatedTableName, tableName, pk)
+		relatedEntries, err := a.related(relatedTableName, tableName, pk)
 		if err != nil {
 			return nil, err
 		}
@@ -146,9 +156,11 @@ func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
+	a.logger.WithValues("entries", len(pks)).Info("Building objects based on ResultSet.")
+
 	objects := []*unstructured.Unstructured{}
 	for _, pk := range pks {
-		object, err := a.createObject(schemaName, pk)
+		object, err := a.object(schemaName, pk)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +170,10 @@ func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 }
 
 // NewAssembler instantiate Assembler.
-func NewAssembler(schema *orm.Schema, resultSet *orm.ResultSet) *Assembler {
-	return &Assembler{schema: schema, resultSet: resultSet}
+func NewAssembler(logger logr.Logger, schema *orm.Schema, resultSet *orm.ResultSet) *Assembler {
+	return &Assembler{
+		logger:    logger.WithName("assembler").WithName(schema.Name),
+		schema:    schema,
+		resultSet: resultSet,
+	}
 }

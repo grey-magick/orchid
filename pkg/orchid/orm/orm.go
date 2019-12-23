@@ -140,7 +140,7 @@ func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 
 		// for each row found for that
 		for _, argument := range arguments {
-			logger.WithValues("columns", len(argument)).
+			logger.WithValues("columns", len(argument)).V(3).
 				Info("Executing insert", "statement", statement)
 			// in case the case of arguments for this table being less than expected, completing the
 			// slice with foreign-key cached IDs
@@ -177,7 +177,7 @@ func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*Result
 	}
 
 	statement := SelectStatement(schema, whereNamespacedName)
-	o.logger.WithValues("namespacedName", namespacedName).
+	o.logger.WithValues("namespacedName", namespacedName).V(3).
 		Info(statement)
 
 	rows, err := o.DB.Query(statement, namespacedName.Namespace, namespacedName.Name)
