@@ -23,16 +23,6 @@ const (
 	JSTypeString  = "string"
 )
 
-// isRequiredProp checks for required properties by being part of required string slice.
-func (j *JSONSchemaParser) isRequiredProp(name string, required []string) bool {
-	for _, requiredProp := range required {
-		if name == requiredProp {
-			return true
-		}
-	}
-	return false
-}
-
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
 func (j *JSONSchemaParser) expandAdditionalProperties(
 	additionalProperties *extv1beta1.JSONSchemaPropsOrBool,
@@ -69,6 +59,7 @@ func (j *JSONSchemaParser) object(
 		// managing an one-to-one relationship, this table will keep a foreign-key pointing to the
 		// next table to be created by primary-key
 		if table.GetColumn(relatedTableName) == nil {
+			logger.Info("Adding local foreign-key for one-to-one relationship.")
 			logger.Info("Adding new column on table.")
 			table.AddBigIntFK(columnName, relatedTableName, PKColumnName, notNull)
 			table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: columnName})
@@ -78,7 +69,7 @@ func (j *JSONSchemaParser) object(
 			return fmt.Errorf("unable to define schema from additionalProperties: '%+v'",
 				additionalProperties)
 		}
-		logger.Info("Expanding additional properties found in JSON-Schema")
+		logger.Info("Expanding additional properties to a key-value table, one-to-many.")
 		jsSchema = j.expandAdditionalProperties(additionalProperties, table.Name)
 
 		// triggering a one-to-many relationship, the next table to be created will get a foreign-key
@@ -114,6 +105,7 @@ func (j *JSONSchemaParser) array(
 	// in case of being an array of objects, it needs to spin off a new table
 	if itemsSchema.Type == JSTypeObject {
 		logger.Info("Creating new object to handle array column.")
+
 		constraint := &Constraint{
 			Type:              PgConstraintFK,
 			ColumnName:        table.Name,
@@ -125,16 +117,19 @@ func (j *JSONSchemaParser) array(
 			Constraints: []*Constraint{constraint},
 			OneToMany:   true,
 		}
+
 		relatedTableName := fmt.Sprintf("%s_%s", table.Name, columnName)
 		return j.Parse(relatedTableName, relationship, itemsSchema)
 	}
-
-	logger.Info("Adding a new array column.")
 
 	// adding a new column to existing table, a single dimension array
 	jsType := itemsSchema.Type
 	jsFormat := itemsSchema.Format
 	maxItems := jsSchema.MaxItems
+
+	logger.WithValues("type", jsType, "format", jsFormat, "maxItems", maxItems).
+		Info("Adding a new array column.")
+
 	column, err := NewColumnArray(columnName, jsType, jsFormat, maxItems, notNull)
 	if err != nil {
 		return err
@@ -193,7 +188,7 @@ func (j *JSONSchemaParser) Parse(
 	var err error
 	for name, jsSchema := range properties {
 		// checking if property name required, therefore not null column
-		notNull := j.isRequiredProp(name, required)
+		notNull := StringSliceContains(required, name)
 
 		switch jsSchema.Type {
 		case JSTypeObject:
