@@ -17,7 +17,7 @@ func (r *ResultSet) getTableData(tableName string) (*Table, []Entry, error) {
 	}
 	data, found := r.Data[tableName]
 	if !found {
-		return nil, nil, fmt.Errorf("no data found for for tale named '%s'", tableName)
+		return nil, nil, fmt.Errorf("no data found for for table named '%s'", tableName)
 	}
 	return table, data, nil
 }
@@ -43,9 +43,6 @@ func (r *ResultSet) Get(
 	columnName string,
 	columnValue interface{},
 ) ([]map[string]interface{}, error) {
-	// FIXME: why having to lower it here?
-	tableName = strings.ToLower(tableName)
-
 	_, data, err := r.getTableData(tableName)
 	if err != nil {
 		return nil, err
@@ -62,9 +59,6 @@ func (r *ResultSet) Get(
 }
 
 func (r *ResultSet) GetPK(tableName string, pk interface{}) (Entry, error) {
-	// FIXME: why having to lower it here?
-	tableName = strings.ToLower(tableName)
-
 	entries, err := r.Get(tableName, PKColumnName, pk)
 	if err != nil {
 		return nil, err
@@ -80,9 +74,6 @@ func (r *ResultSet) GetPK(tableName string, pk interface{}) (Entry, error) {
 }
 
 func (r *ResultSet) GetColumn(tableName, columnName string) (List, error) {
-	// FIXME: why having to lower it here?
-	tableName = strings.ToLower(tableName)
-
 	_, data, err := r.getTableData(tableName)
 	if err != nil {
 		return nil, err

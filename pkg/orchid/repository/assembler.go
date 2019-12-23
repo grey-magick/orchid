@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -32,12 +33,10 @@ func (a *Assembler) kvObject(
 		if !found {
 			continue
 		}
-
 		value, found := nestedEntry["value"]
 		if !found {
 			continue
 		}
-
 		item[key.(string)] = value
 	}
 	return item, nil
@@ -138,15 +137,18 @@ func (a *Assembler) createObject(tableName string, pk interface{}) (map[string]i
 
 // Build create unstructured objects out of result-set.
 func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
+	// to find schema named table, it must be lowered string
+	schemaName := strings.ToLower(a.schema.Name)
+
 	// getting the primary-keys for schema named table
-	pks, err := a.resultSet.GetColumn(a.schema.Name, orm.PKColumnName)
+	pks, err := a.resultSet.GetColumn(schemaName, orm.PKColumnName)
 	if err != nil {
 		return nil, err
 	}
 
 	objects := []*unstructured.Unstructured{}
 	for _, pk := range pks {
-		object, err := a.createObject(a.schema.Name, pk)
+		object, err := a.createObject(schemaName, pk)
 		if err != nil {
 			return nil, err
 		}

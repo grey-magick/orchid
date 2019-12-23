@@ -4,17 +4,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
 	"github.com/isutton/orchid/test/mocks"
 )
 
 func TestAssembler_New(t *testing.T) {
-	pgORM := orm.NewORM("user=postgres password=1 dbname=postgres sslmode=disable")
+	logger := klogr.New().WithName("test")
+
+	pgORM := orm.NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
 	err := pgORM.Connect()
 	assert.NoError(t, err)
 
-	schema := orm.NewSchema("assembler")
+	schema := orm.NewSchema(logger, "assembler")
 
 	apiSchema := mocks.OpenAPIV3SchemaMock()
 	err = schema.GenerateCR(&apiSchema)
