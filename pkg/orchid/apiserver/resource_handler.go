@@ -110,15 +110,6 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8srunt
 	return obj
 }
 
-// isCustomResourceDefinition returns whether obj is a CustomResourceDefinition
-func isCustomResourceDefinition(obj runtime.Object) bool {
-	gvk := obj.GetObjectKind().GroupVersionKind()
-
-	return gvk.Group == "apiextensions.k8s.io" &&
-		gvk.Version == "v1" &&
-		gvk.Kind == "CustomResourceDefinition"
-}
-
 // Register adds the handler routes in the router.
 func (h *APIResourceHandler) Register(router *mux.Router) {
 	// create a resource
