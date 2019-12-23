@@ -3,7 +3,6 @@ package orm
 import (
 	"database/sql"
 	"fmt"
-	"log"
 
 	"github.com/go-logr/logr"
 	_ "github.com/lib/pq"
@@ -114,41 +113,49 @@ func (o *ORM) scanRows(schema *Schema, rows *sql.Rows) (*ResultSet, error) {
 }
 
 // Create stores a given object in the database.
-func (o *ORM) Create(schema *Schema, argumentsPerTable MappedMatrix) error {
-	log.Printf("argumentsPerTable='%#v'", argumentsPerTable)
+func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
+	rows := len(matrix)
+	if rows == 0 {
+		return fmt.Errorf("empty data informed")
+	}
+	logger := o.logger.WithValues("matrix-rows", rows, "schema", schema.Name)
+	logger.Info("Executing create against informed schema.")
 
 	statements := InsertStatement(schema)
-	tablePKCache := make(map[string]int64, len(statements))
 
 	txn, err := o.DB.Begin()
 	if err != nil {
 		return err
 	}
 
+	tablePKCache := make(map[string]int64, len(statements))
 	for i, table := range schema.Tables {
 		statement := statements[i]
-		argumentsSlice, found := argumentsPerTable[table.Name]
+		arguments, found := matrix[table.Name]
 		if !found {
 			continue
 		}
+		logger = logger.WithValues(
+			"statemnet", statement, "rows", len(arguments), "table", table.Name)
 
-		for _, arguments := range argumentsSlice {
+		// for each row found for that
+		for _, argument := range arguments {
+			logger.WithValues("columns", len(argument)).
+				Info("Executing insert", "statement", statement)
 			// in case the case of arguments for this table being less than expected, completing the
 			// slice with foreign-key cached IDs
-			if len(arguments) == 0 {
-				log.Print("[WARN] arguments is empty!!")
+			if len(argument) == 0 {
 				continue
 			}
-
-			if len(arguments) < len(table.Columns)-1 {
-				if arguments, err = o.interpolate(table, arguments, tablePKCache); err != nil {
+			// completing argument with foreign-keys values, cached from previous statements
+			if len(argument) < len(table.Columns)-1 {
+				if argument, err = o.interpolate(table, argument, tablePKCache); err != nil {
 					return err
 				}
 			}
-
+			// executing insert statement and capturing primary-key
 			var primaryKeyValue int64
-			if err = txn.QueryRow(statement, arguments...).Scan(&primaryKeyValue); err != nil {
-				log.Printf("statement='%s', arguments='%#v'", statement, arguments)
+			if err = txn.QueryRow(statement, argument...).Scan(&primaryKeyValue); err != nil {
 				return err
 			}
 			tablePKCache[table.Name] = primaryKeyValue
@@ -170,8 +177,8 @@ func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*Result
 	}
 
 	statement := SelectStatement(schema, whereNamespacedName)
-
-	log.Printf("statement='%s'", statement)
+	o.logger.WithValues("namespacedName", namespacedName).
+		Info(statement)
 
 	rows, err := o.DB.Query(statement, namespacedName.Namespace, namespacedName.Name)
 	if err != nil {
