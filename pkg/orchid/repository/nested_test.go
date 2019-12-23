@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
 	"github.com/isutton/orchid/test/mocks"
@@ -17,7 +18,8 @@ var (
 )
 
 func replicaSetSchema() *orm.Schema {
-	schema := orm.NewSchema("replicaset")
+	logger := klogr.New().WithName("test")
+	schema := orm.NewSchema(logger, "replicaset")
 
 	specTable := schema.TableFactory("spec", true)
 	specTable.Path = []string{"spec"}

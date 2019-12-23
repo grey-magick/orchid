@@ -25,7 +25,7 @@ type Server struct {
 
 // NewServer creates a new Server using options.
 func NewServer(logger logr.Logger, options Options) *Server {
-	pgOrm := orm.NewORM("user=postgres password=1 dbname=postgres sslmode=disable")
+	pgOrm := orm.NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
 
 	err := pgOrm.Connect()
 	if err != nil {

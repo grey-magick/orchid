@@ -7,17 +7,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/pkg/orchid/orm"
 	"github.com/isutton/orchid/test/mocks"
 )
 
 func TestRepository_New(t *testing.T) {
-	pgORM := orm.NewORM("user=postgres password=1 dbname=postgres sslmode=disable")
+	logger := klogr.New().WithName("test")
+
+	pgORM := orm.NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
 	err := pgORM.Connect()
 	assert.NoError(t, err)
 
-	repo := NewRepository(pgORM)
+	repo := NewRepository(logger, pgORM)
 	assert.NotNil(t, repo)
 
 	t.Run("Bootstrap", func(t *testing.T) {

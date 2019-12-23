@@ -2,8 +2,8 @@ package repository
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,8 +14,9 @@ import (
 // Repository on which data is handled regarding ORM Schemas and data extrated from Unstructured,
 // being ready to store CRD data in a sightly different way than regular CRs.
 type Repository struct {
-	schemas map[string]*orm.Schema
-	orm     *orm.ORM
+	logger  logr.Logger            // logger instance
+	schemas map[string]*orm.Schema // schema name and instance
+	orm     *orm.ORM               // orm instance
 }
 
 // crdGVK CustomServiceDefinition GVK
@@ -29,7 +30,7 @@ var crdGVK = schema.GroupVersionKind{
 func (r *Repository) schemaFactory(schemaName string) *orm.Schema {
 	_, exists := r.schemas[schemaName]
 	if !exists {
-		r.schemas[schemaName] = orm.NewSchema(schemaName)
+		r.schemas[schemaName] = orm.NewSchema(r.logger, schemaName)
 	}
 	return r.schemas[schemaName]
 }
@@ -188,17 +189,13 @@ func (r *Repository) Read(
 		return nil, err
 	}
 
-	for k, v := range resultSet.Data {
-		log.Printf("hint='%s', data='%+v'", k, v)
-	}
-
 	assembler := NewAssembler(s, resultSet)
 	objects, err := assembler.Build()
 	if err != nil {
 		return nil, err
 	}
 	if len(objects) > 1 {
-		log.Printf("WARNING: unexpected number of objects '%d'!", len(objects))
+		r.logger.WithValues("objects", len(objects)).Info("WARNING: unexpected number of objects!")
 	}
 
 	u := objects[0]
@@ -215,6 +212,10 @@ func (r *Repository) Bootstrap() error {
 }
 
 // NewRepository instantiate repository.
-func NewRepository(pgORM *orm.ORM) *Repository {
-	return &Repository{orm: pgORM, schemas: map[string]*orm.Schema{}}
+func NewRepository(logger logr.Logger, pgORM *orm.ORM) *Repository {
+	return &Repository{
+		logger:  logger.WithName("repository"),
+		orm:     pgORM,
+		schemas: map[string]*orm.Schema{},
+	}
 }

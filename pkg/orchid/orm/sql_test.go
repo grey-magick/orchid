@@ -5,13 +5,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/test/mocks"
 )
 
 func TestSQL(t *testing.T) {
+	logger := klogr.New().WithName("test")
+
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
-	schema := NewSchema("cr")
+	schema := NewSchema(logger, "cr")
 
 	err := schema.GenerateCR(&openAPIV3Schema)
 	assert.NoError(t, err)
