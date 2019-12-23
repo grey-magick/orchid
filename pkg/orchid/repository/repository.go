@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,8 @@ func (r *Repository) schemaFactory(schemaName string) *orm.Schema {
 
 // schemaName returns the desired schema name based on GVK.
 func (r *Repository) schemaName(gvk schema.GroupVersionKind) string {
-	return fmt.Sprintf("%s_%s_%s", gvk.Group, gvk.Version, gvk.Kind)
+	group := strings.ReplaceAll(gvk.Group, ".", "_")
+	return fmt.Sprintf("%s_%s_%s", group, gvk.Version, gvk.Kind)
 }
 
 // createCRTables execute the create tables for the CR schema. It loads the CR schema based on
