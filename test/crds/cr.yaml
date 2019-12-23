@@ -1,9 +1,9 @@
-apiVersion: examples.orchid.io
-kind: Example
+apiVersion: stable.example.com/v1
+kind: CronTab
 metadata:
   name: example
   namespace: example
 spec:
-  intField: 1024
-  stringField: This is a string
-  boolField: true
+  cronSpec: "* * * * *"
+  image: "image:latest"
+  replicas: 1
