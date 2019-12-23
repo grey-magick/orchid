@@ -113,7 +113,7 @@ func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.O
 }
 
 func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) k8sruntime.Object {
-	panic("implement me")
+	return nil
 }
 
 // ResourcePostHandler handles the create resource action.
