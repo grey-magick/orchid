@@ -26,6 +26,22 @@ var (
 	examplesGroup        = exampleAPIResource.Group
 	examplesVersion      = exampleAPIResource.Version
 	examplesGroupVersion = examplesGroup + "/" + examplesVersion
+
+	// TODO: this definition should be transformed into a JsonSchema at some point, and automatically
+	//       added to the engine at startup time
+	crdAPIResource = metav1.APIResource{
+		Group:        "apiextensions.k8s.io",
+		Kind:         "CustomResourceDefinition",
+		Name:         "customresourcedefinitions",
+		ShortNames:   []string{"crd"},
+		SingularName: "customresourcedefinition",
+		Verbs:        []string{"get", "create"},
+		Version:      "v1",
+	}
+
+	crdGroup        = crdAPIResource.Group
+	crdVersion      = crdAPIResource.Version
+	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
 type APIResourceHandler struct {
@@ -55,6 +71,7 @@ func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntim
 		GroupVersion: examplesGroupVersion,
 		APIResources: []metav1.APIResource{
 			exampleAPIResource,
+			crdAPIResource,
 		},
 	}
 }
@@ -130,9 +147,9 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 }
 
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
-func NewAPIResourceHandler(logger logr.Logger, crdService repository.Repository) *APIResourceHandler {
+func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
+		Repository: repository,
 		Logger:     logger,
-		CRDService: crdService,
 	}
 }
