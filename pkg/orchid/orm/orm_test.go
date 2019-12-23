@@ -4,12 +4,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/test/mocks"
 )
 
 func TestORM_New(t *testing.T) {
-	orm := NewORM("user=postgres password=1 dbname=postgres sslmode=disable")
+	logger := klogr.New().WithName("test")
+	orm := NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
 
 	t.Run("Connect", func(t *testing.T) {
 		err := orm.Connect()
@@ -17,7 +19,7 @@ func TestORM_New(t *testing.T) {
 	})
 
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
-	schema := NewSchema("cr")
+	schema := NewSchema(logger, "cr")
 
 	t.Run("CreateSchemaTables", func(t *testing.T) {
 		err := schema.GenerateCR(&openAPIV3Schema)

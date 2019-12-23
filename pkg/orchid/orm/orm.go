@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/go-logr/logr"
 	_ "github.com/lib/pq"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // ORM represents the data abastraction layer.
 type ORM struct {
-	connStr string  // database adapter connection string
-	DB      *sql.DB // database adapter instance
+	logger  logr.Logger // logger instance
+	connStr string      // database adapter connection string
+	DB      *sql.DB     // database adapter instance
 }
 
 type List []interface{}
@@ -26,7 +28,6 @@ type MappedEntries map[string][]Entry
 // CreateSchemaTables create tables for a schema.
 func (o *ORM) CreateSchemaTables(schema *Schema) error {
 	for _, statement := range CreateTablesStatement(schema) {
-		log.Printf("statement='%s'", statement)
 		_, err := o.DB.Query(statement)
 		if err != nil {
 			return err
@@ -180,6 +181,6 @@ func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*Result
 }
 
 // NewORM instantiate an ORM.
-func NewORM(connStr string) *ORM {
-	return &ORM{connStr: connStr}
+func NewORM(logger logr.Logger, connStr string) *ORM {
+	return &ORM{logger: logger.WithName("orm"), connStr: connStr}
 }
