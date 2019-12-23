@@ -150,9 +150,11 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 
 	// used by kubectl to list objects of a particular resource
 	// TODO: investigate create a Handler specialized in resource entities
-	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ObjectLister))
+	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ObjectLister)).
+		Methods("GET")
 	// used by kubectl to discover all the resources for an API Group
-	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister))
+	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister)).
+		Methods("GET")
 	// used by kubectl to discover available API Groups
 	router.HandleFunc("/apis", Adapt(h.APIGroupLister))
 
