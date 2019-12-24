@@ -6,6 +6,7 @@ import (
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 
@@ -40,6 +41,8 @@ func TestRepository_New(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("cr='%#v'", cr)
 
+	gvk := cr.GetObjectKind().GroupVersionKind()
+
 	_, err = pgORM.DB.Query("truncate table mock_v1_custom cascade")
 	require.NoError(t, err)
 
@@ -49,7 +52,6 @@ func TestRepository_New(t *testing.T) {
 	})
 
 	t.Run("Read-CR", func(t *testing.T) {
-		gvk := cr.GetObjectKind().GroupVersionKind()
 		namespacedName := types.NamespacedName{
 			Namespace: cr.GetNamespace(),
 			Name:      cr.GetName(),
@@ -64,5 +66,21 @@ func TestRepository_New(t *testing.T) {
 		for _, entry := range diff {
 			t.Log(entry)
 		}
+	})
+
+	t.Run("List-CR", func(t *testing.T) {
+		err = repo.Create(cr)
+		require.NoError(t, err)
+
+		options := metav1.ListOptions{LabelSelector: "label=label"}
+		list, err := repo.List(gvk, options)
+		require.NoError(t, err)
+
+		t.Logf("List size '%d'", len(list.Items))
+		for _, item := range list.Items {
+			t.Logf("item='%#v'", item.Object)
+		}
+
+		assert.Len(t, list.Items, 2)
 	})
 }

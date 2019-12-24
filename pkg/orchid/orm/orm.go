@@ -112,6 +112,20 @@ func (o *ORM) scanRows(schema *Schema, rows *sql.Rows) (*ResultSet, error) {
 	return NewResultSet(schema, columnIDs, matrix)
 }
 
+// dbSelect execute a select against the schema tables using where clause and arguments informed.
+// It can return errors on executing the query and building the result-set.
+func (o *ORM) dbSelect(schema *Schema, where []string, arguments []interface{}) (*ResultSet, error) {
+	statement := SelectStatement(schema, where)
+	o.logger.WithValues("statement", statement, "where", where, "arguments", arguments).
+		Info("Executing select statement")
+	rows, err := o.DB.Query(statement, arguments...)
+	if err != nil {
+		return nil, err
+	}
+	return o.scanRows(schema, rows)
+}
+
+// Read namespaced-name from database, returned as a result-set instance.
 // Create stores a given object in the database.
 func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 	rows := len(matrix)
@@ -165,26 +179,37 @@ func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 	return txn.Commit()
 }
 
-// Read namespaced-name from database, returned as a result-set instance.
+// Read a single namespaced name from database, building back a result-set. It can return errors
+// from querying the databae and building the result-set.
 func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*ResultSet, error) {
 	metadataTable, err := schema.GetTable(fmt.Sprintf("%s_metadata", schema.Name))
 	if err != nil {
 		return nil, err
 	}
-	whereNamespacedName := []string{
+	where := []string{
 		fmt.Sprintf("%s.namespace", metadataTable.Hint),
 		fmt.Sprintf("%s.name", metadataTable.Hint),
 	}
+	arguments := []interface{}{namespacedName.Namespace, namespacedName.Name}
+	return o.dbSelect(schema, where, arguments)
+}
 
-	statement := SelectStatement(schema, whereNamespacedName)
-	o.logger.WithValues("namespacedName", namespacedName).V(3).
-		Info(statement)
-
-	rows, err := o.DB.Query(statement, namespacedName.Namespace, namespacedName.Name)
+// List all items matching labels informed. It can return errors from querying the database,
+// and building a result-set with rows.
+func (o *ORM) List(schema *Schema, labelsSet map[string]string) (*ResultSet, error) {
+	labelsTable, err := schema.GetTable(fmt.Sprintf("%s_metadata_labels", schema.Name))
 	if err != nil {
 		return nil, err
 	}
-	return o.scanRows(schema, rows)
+	where := []string{}
+	arguments := []interface{}{}
+	for label, value := range labelsSet {
+		where = append(where, fmt.Sprintf("%s.key", labelsTable.Hint))
+		where = append(where, fmt.Sprintf("%s.value", labelsTable.Hint))
+		arguments = append(arguments, label)
+		arguments = append(arguments, value)
+	}
+	return o.dbSelect(schema, where, arguments)
 }
 
 // NewORM instantiate an ORM.

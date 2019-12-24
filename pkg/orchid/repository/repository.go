@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -178,6 +180,8 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 	return r.orm.Create(s, arguments)
 }
 
+// Read a single object from ORM, searching for a namespaced-name. It can return errors from
+// querying the database, preparing the result-set, and assembling an unstructured object.
 func (r *Repository) Read(
 	gvk schema.GroupVersionKind,
 	namespacedName types.NamespacedName,
@@ -201,6 +205,37 @@ func (r *Repository) Read(
 	u := objects[0]
 	u.SetGroupVersionKind(gvk)
 	return u, nil
+}
+
+// List objects from schema based on metav1.ListOptions.
+func (r *Repository) List(
+	gvk schema.GroupVersionKind,
+	options metav1.ListOptions,
+) (*unstructured.UnstructuredList, error) {
+	s := r.schemaFactory(r.schemaName(gvk))
+
+	labelsSet, err := labels.ConvertSelectorToLabelsMap(options.LabelSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	resultSet, err := r.orm.List(s, labelsSet)
+	if err != nil {
+		return nil, err
+	}
+
+	assembler := NewAssembler(r.logger, s, resultSet)
+	objects, err := assembler.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	list := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	for _, u := range objects {
+		u.SetGroupVersionKind(gvk)
+		list.Items = append(list.Items, *u)
+	}
+	return list, nil
 }
 
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
