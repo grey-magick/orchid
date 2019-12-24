@@ -1,15 +1,22 @@
 package apiserver
 
 import (
+	"errors"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/repository"
-	"github.com/isutton/orchid/pkg/orchid/runtime"
+	orchid "github.com/isutton/orchid/pkg/orchid/runtime"
 )
 
 var (
@@ -44,16 +51,26 @@ var (
 	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
+// ObjectRepository is the repository interface
+type ObjectRepository interface {
+	Create(u *unstructured.Unstructured) error
+	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (k8sruntime.Object, error)
+	// OpenAPIV3SchemaForGVK discovers the OpenAPIV3Schema for the given gvk.
+	// TODO: move this to another component
+	OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*apiextensionsv1.JSONSchemaProps, error)
+}
+
+// APIResourceHandler is responsible for responding API resource requests.
 type APIResourceHandler struct {
 	Logger     logr.Logger
-	Repository *repository.Repository
+	Repository ObjectRepository
 }
 
 // ObjectLister returns a list of objects.
-func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) k8sruntime.Object {
+func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) (k8sruntime.Object, error) {
 	apiVersion, err := vars.GetAPIVersion()
 	if err != nil {
-		// TODO: handle error properly
+		return nil, err
 	}
 	m := make(map[string]interface{})
 	u := &unstructured.Unstructured{Object: m}
@@ -61,11 +78,11 @@ func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) k8sruntime.Obj
 	u.SetKind(exampleAPIResource.Kind + "List")
 	items := make([]interface{}, 0)
 	_ = unstructured.SetNestedSlice(m, items, "items")
-	return u
+	return u, nil
 }
 
 // APIResourceLister lists API resources.
-func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntime.Object {
+func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) (k8sruntime.Object, error) {
 	return &metav1.APIResourceList{
 		// TODO: add GroupVersion argument
 		GroupVersion: examplesGroupVersion,
@@ -73,11 +90,11 @@ func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntim
 			exampleAPIResource,
 			crdAPIResource,
 		},
-	}
+	}, nil
 }
 
 // APIGroupLister lists API groups.
-func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.Object {
+func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) (k8sruntime.Object, error) {
 	crdAPIGroups := h.CRDAPIGroups()
 	groups := []metav1.APIGroup{
 		{
@@ -109,35 +126,56 @@ func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.O
 	}
 	return &metav1.APIGroupList{
 		Groups: append(groups, crdAPIGroups...),
-	}
+	}, nil
 }
 
-func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) k8sruntime.Object {
-	return nil
+func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+	return nil, nil
 }
+
+var BodyEmptyErr = errors.New("body is empty")
 
 // ResourcePostHandler handles the create resource action.
-func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8sruntime.Object {
-	// deserialize the body to an Orchid object
-	obj := runtime.NewObject()
-	err := yaml.Unmarshal(body, obj)
-	if err != nil {
-		panic(err)
+func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+	// do not proceed if body is empty
+	if len(body) == 0 {
+		return nil, BodyEmptyErr
 	}
 
+	// deserialize the body to an Orchid object to validate the object
+	obj := orchid.NewObject()
+	err := yaml.Unmarshal(body, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate body against its schema
+	err = h.Validate(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// deserialize the body to a map[string]interface{} as well, since we'll be using it to feed the
+	// Repository to create the resource
 	uObj := &map[string]interface{}{}
 	err = yaml.Unmarshal(body, uObj)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	u := &unstructured.Unstructured{Object: *uObj}
-	// TODO: this handler should return an error
 	err = h.Repository.Create(u)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	return obj
+	name := types.NamespacedName{
+		Namespace: u.GetNamespace(),
+		Name:      u.GetName(),
+	}
+	createdObj, err := h.Repository.Read(u.GroupVersionKind(), name)
+	if err != nil {
+		return nil, err
+	}
+	return createdObj, err
 }
 
 // Register adds the handler routes in the router.
@@ -163,7 +201,41 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 	router.HandleFunc("/openapi/v2", Adapt(h.OpenAPIHandler))
 }
 
+// CRDAPIGroups returns all supported APIGroups in the server.
 func (h *APIResourceHandler) CRDAPIGroups() []metav1.APIGroup {
+	return nil
+}
+
+var InvalidObjectErr = errors.New("invalid object")
+
+// Validate returns an error when obj is not valid against it's kind's JsonSchema.
+// TODO: move to another component
+func (h *APIResourceHandler) Validate(obj k8sruntime.Object) error {
+	if obj == nil {
+		return errors.New("input is required")
+	}
+	openAPIV3Schema, err := h.Repository.OpenAPIV3SchemaForGVK(obj.GetObjectKind().GroupVersionKind())
+	if err != nil {
+		return err
+	}
+	in := &apiextensionsv1.CustomResourceValidation{
+		OpenAPIV3Schema: openAPIV3Schema,
+	}
+	out := &apiextensions.CustomResourceValidation{}
+	err = apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(in, out, nil)
+	if err != nil {
+		return err
+	}
+	validator, _, err := validation.NewSchemaValidator(out)
+	if err != nil {
+		return err
+	}
+	// perform the actual validation returning the first error if any
+	r := validator.Validate(obj)
+	if len(r.Errors) > 0 {
+		return InvalidObjectErr
+	}
+
 	return nil
 }
 

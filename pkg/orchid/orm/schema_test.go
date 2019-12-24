@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/test/mocks"
@@ -15,7 +15,7 @@ func assertJsonSchemaVsORMSchema(
 	t *testing.T,
 	schema *Schema,
 	table *Table,
-	properties map[string]extv1beta1.JSONSchemaProps,
+	properties map[string]apiextensionsv1.JSONSchemaProps,
 ) {
 	t.Logf("Inspecting table '%s' with '%d' properties", table.Name, len(properties))
 
@@ -83,7 +83,7 @@ func TestSchema_CRD(t *testing.T) {
 
 func TestSchema_ObjectMeta(t *testing.T) {
 	schemaName := "metadata"
-	apiSchema := jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+	apiSchema := jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]apiextensionsv1.JSONSchemaProps{
 		"metadata": jsonSchemaProps(JSTypeObject, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
 	})
 

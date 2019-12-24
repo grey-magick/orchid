@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lib/pq"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -153,13 +155,21 @@ func extractColumns(
 
 // extractCRDOpenAPIV3Schema extract known field path to store OpenAPI schema in a CRD unstructured
 // Object, and returns as an actual JSONSchemaProps.
-func extractCRDOpenAPIV3Schema(obj map[string]interface{}) (*extv1beta1.JSONSchemaProps, error) {
-	data, err := nestedMap(obj, []string{"spec", "validation", "openAPIV3Schema"})
+func extractCRDOpenAPIV3Schema(obj map[string]interface{}) (*apiextensionsv1.JSONSchemaProps, error) {
+	versions, err := nestedSlice(obj, []string{"spec", "versions"})
 	if err != nil {
 		return nil, err
 	}
-	openAPIV3Schema := &extv1beta1.JSONSchemaProps{}
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(data, &openAPIV3Schema)
+	version, ok := versions[0].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("")
+	}
+	data, err := nestedMap(version, []string{"schema", "openAPIV3Schema"})
+	if err != nil {
+		return nil, err
+	}
+	openAPIV3Schema := &apiextensionsv1.JSONSchemaProps{}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(data, openAPIV3Schema)
 	if err != nil {
 		return nil, err
 	}
@@ -180,10 +190,19 @@ func extractCRGVKFromCRD(obj map[string]interface{}) (schema.GroupVersionKind, e
 	} else {
 		gvk.Group = group.(string)
 	}
-	if version, found := data["version"]; !found {
-		return gvk, fmt.Errorf("unable to find version")
-	} else {
-		gvk.Version = version.(string)
+	versions, err := nestedSlice(data, []string{"versions"})
+	if err != nil {
+		return gvk, err
+	}
+	if len(versions) == 0 {
+		return gvk, errors.New("no versions found")
+	}
+	version, ok := versions[0].(map[string]interface{})
+	if ok {
+		gvk.Version, err = nestedString(version, []string{"name"})
+		if err != nil {
+			return gvk, err
+		}
 	}
 	if kind, err := nestedString(obj, []string{"spec", "names", "kind"}); err != nil {
 		return gvk, err

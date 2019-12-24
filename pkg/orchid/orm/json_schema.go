@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // JSONSchemaParser recursively create a set of tables, having one-to-one and one-to-many
@@ -25,12 +25,12 @@ const (
 
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
 func (j *JSONSchemaParser) expandAdditionalProperties(
-	additionalProperties *extv1beta1.JSONSchemaPropsOrBool,
+	additionalProperties *apiextensionsv1.JSONSchemaPropsOrBool,
 	columnName string,
-) extv1beta1.JSONSchemaProps {
+) apiextensionsv1.JSONSchemaProps {
 	additionalSchema := additionalProperties.Schema
 	required := []string{"key", "value"}
-	properties := map[string]extv1beta1.JSONSchemaProps{
+	properties := map[string]apiextensionsv1.JSONSchemaProps{
 		"key":   jsonSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
 		"value": jsonSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
 	}
@@ -42,7 +42,7 @@ func (j *JSONSchemaParser) object(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsSchema extv1beta1.JSONSchemaProps,
+	jsSchema apiextensionsv1.JSONSchemaProps,
 ) error {
 	logger := j.logger.WithValues("table", table.Name, "column", columnName, "notNull", notNull)
 	relationship := Relationship{Path: append(table.Path, columnName)}
@@ -93,7 +93,7 @@ func (j *JSONSchemaParser) array(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsSchema extv1beta1.JSONSchemaProps,
+	jsSchema apiextensionsv1.JSONSchemaProps,
 ) error {
 	logger := j.logger.WithValues("table", table.Name, "column", columnName, "notNull", notNull)
 
@@ -143,7 +143,7 @@ func (j *JSONSchemaParser) column(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsonSchema extv1beta1.JSONSchemaProps,
+	jsonSchema apiextensionsv1.JSONSchemaProps,
 ) error {
 	j.logger.WithValues(
 		"table", table.Name,
@@ -165,7 +165,7 @@ func (j *JSONSchemaParser) column(
 func (j *JSONSchemaParser) Parse(
 	tableName string,
 	relationship Relationship,
-	jsSchema *extv1beta1.JSONSchemaProps,
+	jsSchema *apiextensionsv1.JSONSchemaProps,
 ) error {
 	j.logger.WithValues("table", tableName, "relationship", relationship).
 		Info("Adding new table on schema.")

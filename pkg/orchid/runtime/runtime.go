@@ -11,7 +11,7 @@ import (
 // JSONSchemaNode represents a JSON schema node.
 type JSONSchemaNode map[string]interface{}
 
-// JSONSchemaFields contains root level user defined JSON schema fields present in the object, such
+// JSONSchemaFields contains root level user defined JSON schema fields present in the DefaultObject, such
 // as "spec" and "status".
 type JSONSchemaFields map[string]JSONSchemaNode
 
@@ -70,35 +70,35 @@ type Object interface {
 	DeepCopyObject() runtime.Object
 }
 
-// object is the concrete Object implementation used in Orchid to represent user defined objects.
-type object struct {
+// DefaultObject is the concrete Object implementation used in Orchid to represent user defined objects.
+type DefaultObject struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	metav1.TypeMeta   `json:",omitempty"`
 	JSONSchemaFields  JSONSchemaFields `json:",omitempty"`
 }
 
-func (o *object) GetJSONSchemaField(name string) JSONSchemaNode {
+func (o *DefaultObject) GetJSONSchemaField(name string) JSONSchemaNode {
 	return o.JSONSchemaFields.GetJSONSchemaField(name)
 }
 
-func (o *object) SetJSONSchemaField(name string, node JSONSchemaNode) {
+func (o *DefaultObject) SetJSONSchemaField(name string, node JSONSchemaNode) {
 	o.JSONSchemaFields.SetJSONSchemaField(name, node)
 }
 
 // SetJSONSchemaFields stores the given fields.
-func (o *object) SetJSONSchemaFields(fields JSONSchemaFields) {
+func (o *DefaultObject) SetJSONSchemaFields(fields JSONSchemaFields) {
 	// TODO: DeepCopy
 	o.JSONSchemaFields = fields
 }
 
-func (o *object) DeepCopyObject() runtime.Object {
+func (o *DefaultObject) DeepCopyObject() runtime.Object {
 	// TODO: DeepCopy
 	return o
 }
 
-var _ Object = &object{}
+var _ Object = &DefaultObject{}
 
-func (o *object) UnmarshalJSON(data []byte) error {
+func (o *DefaultObject) UnmarshalJSON(data []byte) error {
 	d := make(map[string]interface{})
 	err := json.Unmarshal(data, &d)
 	if err != nil {
@@ -114,15 +114,15 @@ func (o *object) UnmarshalJSON(data []byte) error {
 	fields := NewJSONSchemaFields(MapToList(d)...)
 	o.SetJSONSchemaFields(fields)
 
-	// create a type alias to object to avoid deep recursion.
-	type alias object
+	// create a type alias to DefaultObject to avoid deep recursion.
+	type alias DefaultObject
 	aux := &struct {
 		*alias
 	}{
 		alias: (*alias)(o),
 	}
 
-	// unmarshal using the alias, which should change the object as side effect.
+	// unmarshal using the alias, which should change the DefaultObject as side effect.
 	err = json.Unmarshal(data, aux)
 	if err != nil {
 		return err
@@ -142,5 +142,5 @@ func MapToList(d map[string]interface{}) []interface{} {
 
 // NewObject returns a new Object.
 func NewObject() Object {
-	return &object{}
+	return &DefaultObject{}
 }
