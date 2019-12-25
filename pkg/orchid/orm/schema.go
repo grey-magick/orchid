@@ -158,7 +158,7 @@ func (s *Schema) GenerateCR(openAPIV3Schema *extv1.JSONSchemaProps) error {
 		openAPIV3Schema.Properties["metadata"] = metadata
 	}
 
-	parser := NewJSONSchemaParser(s.logger, s)
+	parser := NewParser(s.logger, s)
 	return parser.Parse(s.Name, Relationship{}, openAPIV3Schema)
 }
 

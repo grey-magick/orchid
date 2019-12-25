@@ -9,15 +9,15 @@ import (
 	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
-// JSONSchemaParser recursively create a set of tables, having one-to-one and one-to-many
+// Parser recursively create a set of tables, having one-to-one and one-to-many
 // relationships based on informed JSON-Schema.
-type JSONSchemaParser struct {
+type Parser struct {
 	logger logr.Logger // logger instance
 	schema *Schema     // schema instance
 }
 
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
-func (j *JSONSchemaParser) expandAdditionalProperties(
+func (j *Parser) expandAdditionalProperties(
 	additionalProperties *extv1.JSONSchemaPropsOrBool,
 	columnName string,
 ) extv1.JSONSchemaProps {
@@ -31,7 +31,7 @@ func (j *JSONSchemaParser) expandAdditionalProperties(
 }
 
 // object creates extra column and recursively new tables.
-func (j *JSONSchemaParser) object(
+func (j *Parser) object(
 	table *Table,
 	columnName string,
 	notNull bool,
@@ -82,7 +82,7 @@ func (j *JSONSchemaParser) object(
 
 // array by either adding a column type array, but when it's an array of objects, an
 // one-to-many relationship is created.
-func (j *JSONSchemaParser) array(
+func (j *Parser) array(
 	table *Table,
 	columnName string,
 	notNull bool,
@@ -132,7 +132,7 @@ func (j *JSONSchemaParser) array(
 }
 
 // column entries that can be translated to a simple column.
-func (j *JSONSchemaParser) column(
+func (j *Parser) column(
 	table *Table,
 	columnName string,
 	notNull bool,
@@ -153,9 +153,9 @@ func (j *JSONSchemaParser) column(
 	return nil
 }
 
-// jsonSchemaParser parse map of properties into more columns or tables, depending on the type of
-// entry. It can return errors on not being able to deal with a given JSON-Schema type.
-func (j *JSONSchemaParser) Parse(
+// Parse map of properties into more columns or tables, depending on the type of entry. It can
+// return errors on not being able to deal with a given JSON-Schema type.
+func (j *Parser) Parse(
 	tableName string,
 	relationship Relationship,
 	jsSchema *extv1.JSONSchemaProps,
@@ -203,9 +203,9 @@ func (j *JSONSchemaParser) Parse(
 	return err
 }
 
-// NewJSONSchemaParser instantiate a new JSONSchemaParser.
-func NewJSONSchemaParser(logger logr.Logger, schema *Schema) *JSONSchemaParser {
-	return &JSONSchemaParser{
+// NewParser instantiate a new JSON-Schema parser.
+func NewParser(logger logr.Logger, schema *Schema) *Parser {
+	return &Parser{
 		logger: logger.WithName("json-schema-parser"),
 		schema: schema,
 	}
