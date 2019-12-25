@@ -136,16 +136,16 @@ func (j *Parser) column(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsonSchema extv1.JSONSchemaProps,
+	jsSchema extv1.JSONSchemaProps,
 ) error {
 	j.logger.WithValues(
 		"table", table.Name,
 		"column", columnName,
 		"notNull", notNull,
-		"type", jsonSchema.Type,
-		"format", jsonSchema.Format,
+		"type", jsSchema.Type,
+		"format", jsSchema.Format,
 	).Info("Adding new column to table.")
-	column, err := NewColumn(columnName, jsonSchema.Type, jsonSchema.Format, notNull)
+	column, err := NewColumn(columnName, jsSchema.Type, jsSchema.Format, notNull)
 	if err != nil {
 		return err
 	}
