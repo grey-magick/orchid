@@ -107,49 +107,6 @@ func (a *Assembler) related(
 	return entry, nil
 }
 
-// object based on table name and primary-key value, recursively create new objects when finding
-// one-to-one relationships, and enriching the current object with one-to-many related entries.
-func (a *Assembler) object(tableName string, pk interface{}) (map[string]interface{}, error) {
-	table, err := a.schema.GetTable(tableName)
-	if err != nil {
-		return nil, err
-	}
-
-	a.logger.WithValues("table", tableName).Info("Retrieving data to assemble new object")
-	entry, err := a.resultSet.GetPK(tableName, pk)
-	if err != nil {
-		return nil, err
-	}
-
-	// one-to-ene: when this table is refering another via foreign-keys
-	for columnName, columnValue := range entry {
-		if table.IsForeignKey(columnName) {
-			entry[columnName], err = a.object(table.ForeignKeyTable(columnName), columnValue)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	// making sure additional columns are stripped out
-	// entry = a.resultSet.Strip(entry, table.ColumNames())
-	if entry, err = a.amend(table, entry); err != nil {
-		return nil, err
-	}
-
-	// one-to-many: where other tables are having constraints pointing back to this table
-	for _, relatedTableName := range a.schema.OneToManyTables(tableName) {
-		relatedEntries, err := a.related(relatedTableName, tableName, pk)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range relatedEntries {
-			entry[k] = v
-		}
-	}
-	// return a.amend(table, entry)
-	return entry, nil
-}
-
 // amend informed object checking each table's column. Array columns will have a special treatment
 // to convert them back into an slice of interface{}. It can return error on casting informed item
 // values.
@@ -189,6 +146,47 @@ func (a *Assembler) amend(
 		}
 	}
 	return amended, nil
+}
+
+// object based on table name and primary-key value, recursively create new objects when finding
+// one-to-one relationships, and enriching the current object with one-to-many related entries.
+func (a *Assembler) object(tableName string, pk interface{}) (map[string]interface{}, error) {
+	table, err := a.schema.GetTable(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	a.logger.WithValues("table", tableName).Info("Retrieving data to assemble new object")
+	entry, err := a.resultSet.GetPK(tableName, pk)
+	if err != nil {
+		return nil, err
+	}
+
+	// one-to-ene: when this table is refering another via foreign-keys
+	for columnName, columnValue := range entry {
+		if table.IsForeignKey(columnName) {
+			entry[columnName], err = a.object(table.ForeignKeyTable(columnName), columnValue)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	// making sure additional columns are stripped out, and columns are handled properly
+	if entry, err = a.amend(table, entry); err != nil {
+		return nil, err
+	}
+
+	// one-to-many: where other tables are having constraints pointing back to this table
+	for _, relatedTableName := range a.schema.OneToManyTables(tableName) {
+		relatedEntries, err := a.related(relatedTableName, tableName, pk)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range relatedEntries {
+			entry[k] = v
+		}
+	}
+	return entry, nil
 }
 
 // Build create unstructured objects out of result-set.
