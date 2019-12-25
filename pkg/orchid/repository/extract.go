@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
@@ -95,16 +96,16 @@ func extractPath(
 	var err error
 
 	switch originalType {
-	case orm.JSTypeArray:
+	case jsc.Array:
 		data, err = nestedSlice(obj, fieldPath)
 		data = pq.Array(data)
-	case orm.JSTypeBoolean:
+	case jsc.Boolean:
 		data, err = nestedBool(obj, fieldPath)
-	case orm.JSTypeString:
+	case jsc.String:
 		data, err = nestedString(obj, fieldPath)
-	case orm.JSTypeInteger:
+	case jsc.Integer:
 		data, err = nestedInt64(obj, fieldPath)
-	case orm.JSTypeNumber:
+	case jsc.Number:
 		data, err = nestedFloat64(obj, fieldPath)
 	default:
 		return nil, fmt.Errorf("unable to handle type '%s'", originalType)
@@ -137,7 +138,7 @@ func extractColumns(
 			continue
 		}
 		columnFieldPath := append(fieldPath, column.Name)
-		data, err := extractPath(obj, column.OriginalType, columnFieldPath)
+		data, err := extractPath(obj, column.JSType, columnFieldPath)
 		if err != nil {
 			if column.NotNull {
 				return nil, err

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/isutton/orchid/pkg/orchid/orm"
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/test/mocks"
 )
 
@@ -15,7 +15,7 @@ func TestExtract_extractPath(t *testing.T) {
 	require.NoError(t, err)
 
 	fieldPath := []string{"spec", "simple"}
-	data, err := extractPath(cr.Object, orm.JSTypeString, fieldPath)
+	data, err := extractPath(cr.Object, jsc.String, fieldPath)
 	require.NoError(t, err)
 	assert.NotNil(t, data)
 	assert.Equal(t, "11", data)

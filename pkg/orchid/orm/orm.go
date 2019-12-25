@@ -27,6 +27,7 @@ type MappedEntries map[string][]Entry
 // CreateSchemaTables create tables for a schema.
 func (o *ORM) CreateSchemaTables(schema *Schema) error {
 	for _, statement := range CreateTablesStatement(schema) {
+		o.logger.WithValues("statement", statement).Info("Creating table.")
 		_, err := o.DB.Query(statement)
 		if err != nil {
 			return err
@@ -72,7 +73,7 @@ func (o *ORM) resultMatrix(schema *Schema, rows *sql.Rows) (map[string]int, []Li
 		return nil, nil, err
 	}
 	// extracting row column names to create a map of name and column position
-	columnIDs := make(map[string]int, len(schema.Tables))
+	columnIDs := map[string]int{}
 	for i, name := range rowColumns {
 		columnIDs[name] = i
 	}
@@ -108,7 +109,6 @@ func (o *ORM) scanRows(schema *Schema, rows *sql.Rows) (*ResultSet, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return NewResultSet(schema, columnIDs, matrix)
 }
 
@@ -154,8 +154,8 @@ func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 
 		// for each row found for that
 		for _, argument := range arguments {
-			logger.WithValues("columns", len(argument)).V(3).
-				Info("Executing insert", "statement", statement)
+			logger.WithValues("argument", argument, "statement", statement).
+				Info("Executing insert")
 			// in case the case of arguments for this table being less than expected, completing the
 			// slice with foreign-key cached IDs
 			if len(argument) == 0 {

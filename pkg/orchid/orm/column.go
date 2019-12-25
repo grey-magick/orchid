@@ -3,19 +3,21 @@ package orm
 import (
 	"database/sql"
 	"fmt"
+
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 // Column represents columns.
 type Column struct {
-	Name         string // column name
-	Type         string // column type
-	OriginalType string // hint with original column type
-	NotNull      bool   // not null flag
+	Name    string // column name
+	Type    string // column type
+	JSType  string // hint with original column type
+	NotNull bool   // not null flag
 }
 
 // String print out column and type.
 func (c *Column) String() string {
-	statement := fmt.Sprintf("%s %s", c.Name, c.Type)
+	statement := fmt.Sprintf("\"%s\" %s", c.Name, c.Type)
 	if c.NotNull {
 		statement = fmt.Sprintf("%s not null", statement)
 	}
@@ -51,7 +53,7 @@ func NewColumn(name, jsonSchemaType, format string, notNull bool) (*Column, erro
 	if err != nil {
 		return nil, err
 	}
-	return &Column{Name: name, Type: columnType, OriginalType: jsonSchemaType, NotNull: notNull}, nil
+	return &Column{Name: name, Type: columnType, JSType: jsonSchemaType, NotNull: notNull}, nil
 }
 
 // NewColumnArray instantiate a new array column using type, format and max items.
@@ -65,5 +67,6 @@ func NewColumnArray(name, jsonSchemaType, format string, max *int64, notNull boo
 	} else {
 		column.Type = fmt.Sprintf("%s[]", column.Type)
 	}
+	column.JSType = jsc.Array
 	return column, nil
 }

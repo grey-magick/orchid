@@ -118,8 +118,10 @@ func (r *ResultSet) buildMappedMatrix(columnIDs map[string]int, matrix []List) e
 	pkCache := make(map[string][]interface{}, len(r.schema.Tables))
 
 	for _, row := range matrix {
-		if columnIDsLen != len(row) {
-			return fmt.Errorf("wrong amount of columns vs. amount of row columns")
+		rowLen := len(row)
+		if columnIDsLen != rowLen {
+			return fmt.Errorf("different amount of columns vs. row columns (%d/%d)",
+				columnIDsLen, rowLen)
 		}
 
 		// extracting a map splitting the different tables in different maps organized by hint

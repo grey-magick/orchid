@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-logr/logr"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 // JSONSchemaParser recursively create a set of tables, having one-to-one and one-to-many
@@ -14,15 +16,6 @@ type JSONSchemaParser struct {
 	schema *Schema     // schema instance
 }
 
-const (
-	JSTypeArray   = "array"
-	JSTypeBoolean = "boolean"
-	JSTypeInteger = "integer"
-	JSTypeNumber  = "number"
-	JSTypeObject  = "object"
-	JSTypeString  = "string"
-)
-
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
 func (j *JSONSchemaParser) expandAdditionalProperties(
 	additionalProperties *extv1beta1.JSONSchemaPropsOrBool,
@@ -31,10 +24,10 @@ func (j *JSONSchemaParser) expandAdditionalProperties(
 	additionalSchema := additionalProperties.Schema
 	required := []string{"key", "value"}
 	properties := map[string]extv1beta1.JSONSchemaProps{
-		"key":   jsonSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
-		"value": jsonSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
+		"key":   jsc.JSONSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
+		"value": jsc.JSONSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
 	}
-	return jsonSchemaProps(JSTypeObject, "", required, nil, properties)
+	return jsc.JSONSchemaProps(jsc.Object, "", required, nil, properties)
 }
 
 // object creates extra column and recursively new tables.
@@ -103,7 +96,7 @@ func (j *JSONSchemaParser) array(
 	itemsSchema := jsSchema.Items.Schema
 
 	// in case of being an array of objects, it needs to spin off a new table
-	if itemsSchema.Type == JSTypeObject {
+	if itemsSchema.Type == jsc.Object {
 		logger.Info("Creating new object to handle array column.")
 
 		constraint := &Constraint{
@@ -191,17 +184,17 @@ func (j *JSONSchemaParser) Parse(
 		notNull := StringSliceContains(required, name)
 
 		switch jsSchema.Type {
-		case JSTypeObject:
+		case jsc.Object:
 			err = j.object(table, name, notNull, jsSchema)
-		case JSTypeArray:
+		case jsc.Array:
 			err = j.array(table, name, notNull, jsSchema)
-		case JSTypeBoolean:
+		case jsc.Boolean:
 			err = j.column(table, name, notNull, jsSchema)
-		case JSTypeString:
+		case jsc.String:
 			err = j.column(table, name, notNull, jsSchema)
-		case JSTypeInteger:
+		case jsc.Integer:
 			err = j.column(table, name, notNull, jsSchema)
-		case JSTypeNumber:
+		case jsc.Number:
 			err = j.column(table, name, notNull, jsSchema)
 		default:
 			return fmt.Errorf("unknown json-schema type '%s'", jsSchema.Type)

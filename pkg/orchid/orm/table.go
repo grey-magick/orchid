@@ -3,6 +3,8 @@ package orm
 import (
 	"fmt"
 	"strings"
+
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 // Table represents database table with columns and constraints.
@@ -67,12 +69,7 @@ func (t *Table) AddBigIntFK(
 	relatedColumnName string,
 	notNull bool,
 ) {
-	t.AddColumn(&Column{
-		Name:         columnName,
-		Type:         PgTypeBigInt,
-		OriginalType: JSTypeObject,
-		NotNull:      notNull,
-	})
+	t.AddColumn(&Column{Name: columnName, Type: PgTypeBigInt, JSType: jsc.Object, NotNull: notNull})
 	t.AddConstraint(&Constraint{
 		Type:              PgConstraintFK,
 		ColumnName:        columnName,

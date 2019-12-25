@@ -82,7 +82,7 @@ func (r *Repository) prepareCRD(
 			// CRD data is saved as regular json, in a JSONB column, therefore it's extracted as a
 			// single entry.
 			var data interface{}
-			if column.Name == orm.CRDRawDataColumn {
+			if column.Name == orm.CRDRawColumn {
 				json, err := u.MarshalJSON()
 				if err != nil {
 					return nil, err
@@ -91,7 +91,7 @@ func (r *Repository) prepareCRD(
 			} else {
 				var err error
 				columnFieldPath := append(table.Path, column.Name)
-				data, err = extractPath(obj, column.OriginalType, columnFieldPath)
+				data, err = extractPath(obj, column.JSType, columnFieldPath)
 				if err != nil {
 					if column.NotNull {
 						return nil, err

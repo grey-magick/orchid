@@ -8,6 +8,7 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/klog/klogr"
 
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/test/mocks"
 )
 
@@ -23,7 +24,7 @@ func assertJsonSchemaVsORMSchema(
 	assert.True(t, len(table.ColumNames()) > 0)
 
 	for name, jsonSchema := range properties {
-		if jsonSchema.Type != JSTypeObject {
+		if jsonSchema.Type != jsc.Object {
 			continue
 		}
 
@@ -83,8 +84,8 @@ func TestSchema_CRD(t *testing.T) {
 
 func TestSchema_ObjectMeta(t *testing.T) {
 	schemaName := "metadata"
-	apiSchema := jsonSchemaProps(JSTypeObject, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
-		"metadata": jsonSchemaProps(JSTypeObject, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
+	apiSchema := jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		"metadata": jsc.JSONSchemaProps(jsc.Object, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
 	})
 
 	logger := klogr.New().WithName("test")
