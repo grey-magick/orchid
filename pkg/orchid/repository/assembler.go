@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
@@ -130,7 +131,10 @@ func (a *Assembler) object(tableName string, pk interface{}) (map[string]interfa
 		}
 	}
 	// making sure additional columns are stripped out
-	entry = a.resultSet.Strip(entry, table.ColumNames())
+	// entry = a.resultSet.Strip(entry, table.ColumNames())
+	if entry, err = a.amend(table, entry); err != nil {
+		return nil, err
+	}
 
 	// one-to-many: where other tables are having constraints pointing back to this table
 	for _, relatedTableName := range a.schema.OneToManyTables(tableName) {
@@ -142,7 +146,49 @@ func (a *Assembler) object(tableName string, pk interface{}) (map[string]interfa
 			entry[k] = v
 		}
 	}
+	// return a.amend(table, entry)
 	return entry, nil
+}
+
+// amend informed object checking each table's column. Array columns will have a special treatment
+// to convert them back into an slice of interface{}. It can return error on casting informed item
+// values.
+func (a *Assembler) amend(
+	table *orm.Table,
+	entry map[string]interface{},
+) (map[string]interface{}, error) {
+	amended := map[string]interface{}{}
+	for _, column := range table.Columns {
+		if table.IsPrimaryKey(column.Name) {
+			continue
+		}
+
+		// TODO: check for empty values, for instance instead of nil, it should replace with an
+		// empty string. The same for the other types.
+		value, found := entry[column.Name]
+		if !found {
+			return nil, fmt.Errorf("column '%s' not found on entry '%#v'", column.Name, entry)
+		}
+
+		if column.JSType == jsc.Array {
+			byteSlice, ok := value.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("unable to scan '%#v' into a byte slice", entry[column.Name])
+			}
+
+			trimmed := strings.TrimPrefix(string(byteSlice), "{")
+			trimmed = strings.TrimSuffix(trimmed, "}")
+
+			array := []interface{}{}
+			for _, item := range strings.Split(trimmed, ",") {
+				array = append(array, item)
+			}
+			amended[column.Name] = array
+		} else {
+			amended[column.Name] = value
+		}
+	}
+	return amended, nil
 }
 
 // Build create unstructured objects out of result-set.

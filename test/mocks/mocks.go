@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 func JSONSchemaProps(
@@ -28,22 +30,31 @@ func JSONSchemaProps(
 
 // OpenAPIV3SchemaMock creates a realistic version of openAPIV3Schema entry in Kubernetes CRDs.
 func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
+	maxItems := int64(10)
+	specProps := map[string]extv1beta1.JSONSchemaProps{
+		"simple": jsc.JSONSchemaProps(jsc.String, "", nil, nil, nil),
+		"array": jsc.JSONSchemaProps(jsc.Array, "", nil, jsc.JSONSchemaPropsOrArray(
+			extv1beta1.JSONSchemaProps{
+				Type:     jsc.String,
+				Format:   "",
+				MaxItems: &maxItems,
+			},
+		), nil),
+		"complex": jsc.JSONSchemaProps("object", "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+			"simple_nested": jsc.JSONSchemaProps("string", "", nil, nil, nil),
+			"complex_nested": jsc.JSONSchemaProps(
+				"object", "", []string{"attribute"}, nil, map[string]extv1beta1.JSONSchemaProps{
+					"attribute": jsc.StringProp,
+				}),
+		}),
+	}
+	spec := jsc.JSONSchemaProps(jsc.Object, "", []string{"simple"}, nil, specProps)
 	return extv1beta1.JSONSchemaProps{
 		Properties: map[string]extv1beta1.JSONSchemaProps{
-			"apiVersion": JSONSchemaProps("string", "", nil, nil),
-			"kind":       JSONSchemaProps("string", "", nil, nil),
-			"metadata":   JSONSchemaProps("object", "", nil, nil),
-			"spec": JSONSchemaProps("object", "", []string{"simple"}, map[string]extv1beta1.JSONSchemaProps{
-				"simple": JSONSchemaProps("string", "", nil, nil),
-				"complex": JSONSchemaProps("object", "", nil, map[string]extv1beta1.JSONSchemaProps{
-					"simple_nested": JSONSchemaProps("string", "", nil, nil),
-					"complex_nested": JSONSchemaProps(
-						"object", "", []string{"attribute"}, map[string]extv1beta1.JSONSchemaProps{
-							"attribute": JSONSchemaProps("string", "", nil, nil),
-						}),
-				}),
-			}),
-			// "status": JSONSchemaProps("string", "", nil, nil),
+			"apiVersion": jsc.StringProp,
+			"kind":       jsc.StringProp,
+			"metadata":   jsc.JSONSchemaProps(jsc.Object, "", nil, nil, nil),
+			"spec":       spec,
 		},
 	}
 }
@@ -64,6 +75,7 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 	u.SetUnstructuredContent(map[string]interface{}{
 		"spec": map[string]interface{}{
 			"simple": "11",
+			"array":  []interface{}{"a", "r", "r", "a", "y"},
 			"complex": map[string]interface{}{
 				"simple_nested": "11",
 				"complex_nested": map[string]interface{}{

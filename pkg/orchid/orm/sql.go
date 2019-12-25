@@ -19,7 +19,11 @@ func valuesPlaceholders(amount int) []string {
 func InsertStatement(schema *Schema) []string {
 	inserts := []string{}
 	for _, table := range schema.Tables {
-		columnNames := table.ColumNames()
+		columnNames := []string{}
+		for _, column := range table.ColumNames() {
+			columnNames = append(columnNames, fmt.Sprintf("\"%s\"", column))
+		}
+
 		insert := fmt.Sprintf(
 			"insert into %s (%s) values (%s) returning %s",
 			table.Name,
@@ -39,20 +43,19 @@ func SelectStatement(schema *Schema, where []string) string {
 	statementWhere := []string{}
 
 	for _, table := range schema.TablesReversed() {
-		statementColumns = append(
-			statementColumns,
-			fmt.Sprintf("%s.%s as \"%s.%s\"", table.Hint, PKColumnName, table.Hint, PKColumnName),
-		)
-		for _, column := range table.ColumNames() {
+		columns := []string{PKColumnName}
+		columns = append(columns, table.ColumNames()...)
+
+		for _, column := range columns {
 			statementColumns = append(statementColumns,
-				fmt.Sprintf("%s.%s as \"%s.%s\"", table.Hint, column, table.Hint, column))
+				fmt.Sprintf("%s.\"%s\" as \"%s.%s\"", table.Hint, column, table.Hint, column))
 		}
 
 		for _, constraint := range table.Constraints {
 			if constraint.Type != PgConstraintFK {
 				continue
 			}
-			statementWhere = append(statementWhere, fmt.Sprintf("%s.%s=%s.%s",
+			statementWhere = append(statementWhere, fmt.Sprintf("%s.\"%s\"=%s.\"%s\"",
 				schema.GetHint(constraint.RelatedTableName),
 				constraint.RelatedColumnName,
 				table.Hint,
