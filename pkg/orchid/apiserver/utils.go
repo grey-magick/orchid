@@ -32,7 +32,7 @@ func (v Vars) GetAPIVersion() (string, error) {
 }
 
 // ResourceFunc maps vars to runtime.Object
-type ResourceFunc func(vars Vars, body []byte) runtime.Object
+type ResourceFunc func(vars Vars, body []byte) (runtime.Object, error)
 
 // Adapt decorates a ResourceFunc returning a HandlerFunc to be installed in the router.
 func Adapt(resourceFunc ResourceFunc) http.HandlerFunc {
@@ -43,7 +43,15 @@ func Adapt(resourceFunc ResourceFunc) http.HandlerFunc {
 		}
 
 		// execute the given resourceFunc
-		obj := resourceFunc(mux.Vars(r), body)
+		obj, err := resourceFunc(mux.Vars(r), body)
+		if err != nil {
+			w.WriteHeader(500)
+			_, err = w.Write([]byte(err.Error()))
+			if err != nil {
+				// FIXME: this should be probably logged at application level?
+			}
+			return
+		}
 		if obj == nil {
 			w.WriteHeader(404)
 			return
@@ -61,7 +69,7 @@ func Adapt(resourceFunc ResourceFunc) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write(jsonObj)
 		if err != nil {
-			// TODO: error treatment
+			// TODO: error treatment, probably like K8s HandleError() function
 		}
 
 	}

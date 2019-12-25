@@ -1,28 +1,28 @@
 package orm
 
 import (
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 // objectMetaStringKV creates a key-value entry.
-func objectMetaStringKV() extv1beta1.JSONSchemaProps {
-	return extv1beta1.JSONSchemaProps{
+func objectMetaStringKV() extv1.JSONSchemaProps {
+	return extv1.JSONSchemaProps{
 		Type:                 jsc.Object,
-		AdditionalProperties: &extv1beta1.JSONSchemaPropsOrBool{Schema: &jsc.StringProp},
+		AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &jsc.StringProp},
 	}
 }
 
 // objectMetaFinalizers
-func objectMetaFinalizers() extv1beta1.JSONSchemaProps {
+func objectMetaFinalizers() extv1.JSONSchemaProps {
 	return jsc.JSONSchemaProps(jsc.Array, "", nil, jsc.JSONSchemaPropsOrArray(jsc.StringProp), nil)
 }
 
 // objectMetaManagedFields defines ObjectMeta.managedFields entry.
-func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
+func objectMetaManagedFields() extv1.JSONSchemaProps {
 	items := jsc.JSONSchemaPropsOrArray(
-		jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1.JSONSchemaProps{
 			"apiVersion": jsc.StringProp,
 			"manager":    jsc.StringProp,
 			"operation":  jsc.StringProp,
@@ -33,9 +33,9 @@ func objectMetaManagedFields() extv1beta1.JSONSchemaProps {
 }
 
 // objectMetaOwnerReferences defines ObjectMeta.ownerReferences entry.
-func objectMetaOwnerReferences() extv1beta1.JSONSchemaProps {
+func objectMetaOwnerReferences() extv1.JSONSchemaProps {
 	items := jsc.JSONSchemaPropsOrArray(
-		jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1.JSONSchemaProps{
 			"apiVersion":         jsc.StringProp,
 			"blockOwnerDeletion": jsc.BooleanProp,
 			"controller":         jsc.BooleanProp,
@@ -48,8 +48,8 @@ func objectMetaOwnerReferences() extv1beta1.JSONSchemaProps {
 }
 
 // metaV1ObjectMetaOpenAPIV3Schema creates an ObjectMeta object based on metav1.
-func metaV1ObjectMetaOpenAPIV3Schema() map[string]extv1beta1.JSONSchemaProps {
-	return map[string]extv1beta1.JSONSchemaProps{
+func metaV1ObjectMetaOpenAPIV3Schema() map[string]extv1.JSONSchemaProps {
+	return map[string]extv1.JSONSchemaProps{
 		"annotations":                objectMetaStringKV(),
 		"clusterName":                jsc.StringProp,
 		"creationTimestamp":          jsc.StringProp,

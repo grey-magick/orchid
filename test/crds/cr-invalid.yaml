@@ -4,6 +4,6 @@ metadata:
   name: example
   namespace: example
 spec:
-  cronSpec: "* * * * *"
-  image: "image:latest"
-  replicas: 1
+  cronSpec: {"a": "b"}
+  image: [1, 2]
+  replicas: "str"

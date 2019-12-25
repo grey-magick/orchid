@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // Schema around a given CR (Custom Resource), as in the group of tables required to store CR's
@@ -150,7 +150,7 @@ func (s *Schema) TablesReversed() []*Table {
 
 // GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to
 // create tables and columns. Can return error on JSON-Schema parsing.
-func (s *Schema) GenerateCR(openAPIV3Schema *extv1beta1.JSONSchemaProps) error {
+func (s *Schema) GenerateCR(openAPIV3Schema *extv1.JSONSchemaProps) error {
 	// intercepting "metadata" attribute, making sure only on the first level
 	if _, found := openAPIV3Schema.Properties["metadata"]; found {
 		metadata := openAPIV3Schema.Properties["metadata"]

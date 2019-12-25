@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
@@ -18,12 +18,12 @@ type JSONSchemaParser struct {
 
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
 func (j *JSONSchemaParser) expandAdditionalProperties(
-	additionalProperties *extv1beta1.JSONSchemaPropsOrBool,
+	additionalProperties *extv1.JSONSchemaPropsOrBool,
 	columnName string,
-) extv1beta1.JSONSchemaProps {
+) extv1.JSONSchemaProps {
 	additionalSchema := additionalProperties.Schema
 	required := []string{"key", "value"}
-	properties := map[string]extv1beta1.JSONSchemaProps{
+	properties := map[string]extv1.JSONSchemaProps{
 		"key":   jsc.JSONSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
 		"value": jsc.JSONSchemaProps(additionalSchema.Type, additionalSchema.Format, nil, nil, nil),
 	}
@@ -35,7 +35,7 @@ func (j *JSONSchemaParser) object(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsSchema extv1beta1.JSONSchemaProps,
+	jsSchema extv1.JSONSchemaProps,
 ) error {
 	logger := j.logger.WithValues("table", table.Name, "column", columnName, "notNull", notNull)
 	relationship := Relationship{Path: append(table.Path, columnName)}
@@ -86,7 +86,7 @@ func (j *JSONSchemaParser) array(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsSchema extv1beta1.JSONSchemaProps,
+	jsSchema extv1.JSONSchemaProps,
 ) error {
 	logger := j.logger.WithValues("table", table.Name, "column", columnName, "notNull", notNull)
 
@@ -136,7 +136,7 @@ func (j *JSONSchemaParser) column(
 	table *Table,
 	columnName string,
 	notNull bool,
-	jsonSchema extv1beta1.JSONSchemaProps,
+	jsonSchema extv1.JSONSchemaProps,
 ) error {
 	j.logger.WithValues(
 		"table", table.Name,
@@ -158,7 +158,7 @@ func (j *JSONSchemaParser) column(
 func (j *JSONSchemaParser) Parse(
 	tableName string,
 	relationship Relationship,
-	jsSchema *extv1beta1.JSONSchemaProps,
+	jsSchema *extv1.JSONSchemaProps,
 ) error {
 	j.logger.WithValues("table", tableName, "relationship", relationship).
 		Info("Adding new table on schema.")

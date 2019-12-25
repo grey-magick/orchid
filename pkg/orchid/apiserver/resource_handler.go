@@ -1,15 +1,22 @@
 package apiserver
 
 import (
+	"errors"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/repository"
-	"github.com/isutton/orchid/pkg/orchid/runtime"
+	orchid "github.com/isutton/orchid/pkg/orchid/runtime"
 )
 
 var (
@@ -26,19 +33,44 @@ var (
 	examplesGroup        = exampleAPIResource.Group
 	examplesVersion      = exampleAPIResource.Version
 	examplesGroupVersion = examplesGroup + "/" + examplesVersion
+
+	// TODO: this definition should be transformed into a JsonSchema at some point, and automatically
+	//       added to the engine at startup time
+	crdAPIResource = metav1.APIResource{
+		Group:        "apiextensions.k8s.io",
+		Kind:         "CustomResourceDefinition",
+		Name:         "customresourcedefinitions",
+		ShortNames:   []string{"crd"},
+		SingularName: "customresourcedefinition",
+		Verbs:        []string{"get", "create"},
+		Version:      "v1",
+	}
+
+	crdGroup        = crdAPIResource.Group
+	crdVersion      = crdAPIResource.Version
+	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
+// ObjectRepository is the repository interface
+type ObjectRepository interface {
+	Create(u *unstructured.Unstructured) error
+	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (k8sruntime.Object, error)
+	// OpenAPIV3SchemaForGVK discovers the OpenAPIV3Schema for the given gvk.
+	// TODO: move this to another component
+	OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error)
+}
+
+// APIResourceHandler is responsible for responding API resource requests.
 type APIResourceHandler struct {
-	// CRDService is responsible for managing CRDs.
-	CRDService repository.Repository
 	Logger     logr.Logger
+	Repository ObjectRepository
 }
 
 // ObjectLister returns a list of objects.
-func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) k8sruntime.Object {
+func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) (k8sruntime.Object, error) {
 	apiVersion, err := vars.GetAPIVersion()
 	if err != nil {
-		// TODO: handle error properly
+		return nil, err
 	}
 	m := make(map[string]interface{})
 	u := &unstructured.Unstructured{Object: m}
@@ -46,77 +78,104 @@ func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) k8sruntime.Obj
 	u.SetKind(exampleAPIResource.Kind + "List")
 	items := make([]interface{}, 0)
 	_ = unstructured.SetNestedSlice(m, items, "items")
-	return u
+	return u, nil
 }
 
 // APIResourceLister lists API resources.
-func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) k8sruntime.Object {
+func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) (k8sruntime.Object, error) {
 	return &metav1.APIResourceList{
 		// TODO: add GroupVersion argument
 		GroupVersion: examplesGroupVersion,
 		APIResources: []metav1.APIResource{
 			exampleAPIResource,
+			crdAPIResource,
 		},
-	}
+	}, nil
 }
 
 // APIGroupLister lists API groups.
-func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) k8sruntime.Object {
-	return &metav1.APIGroupList{
-		Groups: []metav1.APIGroup{
-			{
-				Name: examplesGroup,
-				PreferredVersion: metav1.GroupVersionForDiscovery{
+func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) (k8sruntime.Object, error) {
+	crdAPIGroups := h.CRDAPIGroups()
+	groups := []metav1.APIGroup{
+		{
+			Name: examplesGroup,
+			PreferredVersion: metav1.GroupVersionForDiscovery{
+				GroupVersion: examplesGroupVersion,
+				Version:      examplesVersion,
+			},
+			Versions: []metav1.GroupVersionForDiscovery{
+				{
 					GroupVersion: examplesGroupVersion,
 					Version:      examplesVersion,
 				},
-				Versions: []metav1.GroupVersionForDiscovery{
-					{
-						GroupVersion: examplesGroupVersion,
-						Version:      examplesVersion,
-					},
+			},
+		},
+		{
+			Name: crdGroup,
+			PreferredVersion: metav1.GroupVersionForDiscovery{
+				GroupVersion: crdGroupVersion,
+				Version:      crdVersion,
+			},
+			Versions: []metav1.GroupVersionForDiscovery{
+				{
+					GroupVersion: crdGroupVersion,
+					Version:      crdVersion,
 				},
 			},
 		},
 	}
+	return &metav1.APIGroupList{
+		Groups: append(groups, crdAPIGroups...),
+	}, nil
 }
 
-func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) k8sruntime.Object {
-	panic("implement me")
+func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+	return nil, nil
 }
+
+var BodyEmptyErr = errors.New("body is empty")
 
 // ResourcePostHandler handles the create resource action.
-func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) k8sruntime.Object {
-	// deserialize the body to an Orchid object
-	obj := runtime.NewObject()
-	err := yaml.Unmarshal(body, obj)
-	if err != nil {
-		panic(err)
+func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+	// do not proceed if body is empty
+	if len(body) == 0 {
+		return nil, BodyEmptyErr
 	}
 
-	// if isCustomResourceDefinition(obj) {
-	// 	// create all storage resources for this new object.
-	// 	var crd *v1beta1.CustomResourceDefinition
-	// 	err := yaml.Unmarshal(body, crd)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	err = h.CRDService.Create(crd)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// }
+	// deserialize the body to an Orchid object to validate the object
+	obj := orchid.NewObject()
+	err := yaml.Unmarshal(body, obj)
+	if err != nil {
+		return nil, err
+	}
 
-	return obj
-}
+	// validate body against its schema
+	err = h.Validate(obj)
+	if err != nil {
+		return nil, err
+	}
 
-// isCustomResourceDefinition returns whether obj is a CustomResourceDefinition
-func isCustomResourceDefinition(obj runtime.Object) bool {
-	gvk := obj.GetObjectKind().GroupVersionKind()
-
-	return gvk.Group == "apiextensions.k8s.io" &&
-		gvk.Version == "v1" &&
-		gvk.Kind == "CustomResourceDefinition"
+	// deserialize the body to a map[string]interface{} as well, since we'll be using it to feed the
+	// Repository to create the resource
+	uObj := &map[string]interface{}{}
+	err = yaml.Unmarshal(body, uObj)
+	if err != nil {
+		return nil, err
+	}
+	u := &unstructured.Unstructured{Object: *uObj}
+	err = h.Repository.Create(u)
+	if err != nil {
+		return nil, err
+	}
+	name := types.NamespacedName{
+		Namespace: u.GetNamespace(),
+		Name:      u.GetName(),
+	}
+	createdObj, err := h.Repository.Read(u.GroupVersionKind(), name)
+	if err != nil {
+		return nil, err
+	}
+	return createdObj, err
 }
 
 // Register adds the handler routes in the router.
@@ -129,9 +188,11 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 
 	// used by kubectl to list objects of a particular resource
 	// TODO: investigate create a Handler specialized in resource entities
-	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ObjectLister))
+	router.HandleFunc("/apis/{group}/{version}/{resource}", Adapt(h.ObjectLister)).
+		Methods("GET")
 	// used by kubectl to discover all the resources for an API Group
-	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister))
+	router.HandleFunc("/apis/{group}/{version}", Adapt(h.APIResourceLister)).
+		Methods("GET")
 	// used by kubectl to discover available API Groups
 	router.HandleFunc("/apis", Adapt(h.APIGroupLister))
 
@@ -140,10 +201,48 @@ func (h *APIResourceHandler) Register(router *mux.Router) {
 	router.HandleFunc("/openapi/v2", Adapt(h.OpenAPIHandler))
 }
 
+// CRDAPIGroups returns all supported APIGroups in the server.
+func (h *APIResourceHandler) CRDAPIGroups() []metav1.APIGroup {
+	return nil
+}
+
+var InvalidObjectErr = errors.New("invalid object")
+
+// Validate returns an error when obj is not valid against it's kind's JsonSchema.
+// TODO: move to another component
+func (h *APIResourceHandler) Validate(obj k8sruntime.Object) error {
+	if obj == nil {
+		return errors.New("input is required")
+	}
+	openAPIV3Schema, err := h.Repository.OpenAPIV3SchemaForGVK(obj.GetObjectKind().GroupVersionKind())
+	if err != nil {
+		return err
+	}
+	in := &extv1.CustomResourceValidation{
+		OpenAPIV3Schema: openAPIV3Schema,
+	}
+	out := &apiextensions.CustomResourceValidation{}
+	err = extv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(in, out, nil)
+	if err != nil {
+		return err
+	}
+	validator, _, err := validation.NewSchemaValidator(out)
+	if err != nil {
+		return err
+	}
+	// perform the actual validation returning the first error if any
+	r := validator.Validate(obj)
+	if len(r.Errors) > 0 {
+		return InvalidObjectErr
+	}
+
+	return nil
+}
+
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
-func NewAPIResourceHandler(logger logr.Logger, crdService repository.Repository) *APIResourceHandler {
+func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
+		Repository: repository,
 		Logger:     logger,
-		CRDService: crdService,
 	}
 }

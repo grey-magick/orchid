@@ -1,11 +1,12 @@
 package mocks
 
 import (
+	"encoding/json"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,9 +19,9 @@ func JSONSchemaProps(
 	jsonSchemaType string,
 	format string,
 	required []string,
-	properties map[string]extv1beta1.JSONSchemaProps,
-) extv1beta1.JSONSchemaProps {
-	return extv1beta1.JSONSchemaProps{
+	properties map[string]extv1.JSONSchemaProps,
+) extv1.JSONSchemaProps {
+	return extv1.JSONSchemaProps{
 		Type:       jsonSchemaType,
 		Format:     format,
 		Properties: properties,
@@ -29,28 +30,28 @@ func JSONSchemaProps(
 }
 
 // OpenAPIV3SchemaMock creates a realistic version of openAPIV3Schema entry in Kubernetes CRDs.
-func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
+func OpenAPIV3SchemaMock() extv1.JSONSchemaProps {
 	maxItems := int64(10)
-	specProps := map[string]extv1beta1.JSONSchemaProps{
+	specProps := map[string]extv1.JSONSchemaProps{
 		"simple": jsc.JSONSchemaProps(jsc.String, "", nil, nil, nil),
 		"array": jsc.JSONSchemaProps(jsc.Array, "", nil, jsc.JSONSchemaPropsOrArray(
-			extv1beta1.JSONSchemaProps{
+			extv1.JSONSchemaProps{
 				Type:     jsc.String,
 				Format:   "",
 				MaxItems: &maxItems,
 			},
 		), nil),
-		"complex": jsc.JSONSchemaProps("object", "", nil, nil, map[string]extv1beta1.JSONSchemaProps{
+		"complex": jsc.JSONSchemaProps("object", "", nil, nil, map[string]extv1.JSONSchemaProps{
 			"simple_nested": jsc.JSONSchemaProps("string", "", nil, nil, nil),
 			"complex_nested": jsc.JSONSchemaProps(
-				"object", "", []string{"attribute"}, nil, map[string]extv1beta1.JSONSchemaProps{
+				"object", "", []string{"attribute"}, nil, map[string]extv1.JSONSchemaProps{
 					"attribute": jsc.StringProp,
 				}),
 		}),
 	}
 	spec := jsc.JSONSchemaProps(jsc.Object, "", []string{"simple"}, nil, specProps)
-	return extv1beta1.JSONSchemaProps{
-		Properties: map[string]extv1beta1.JSONSchemaProps{
+	return extv1.JSONSchemaProps{
+		Properties: map[string]extv1.JSONSchemaProps{
 			"apiVersion": jsc.StringProp,
 			"kind":       jsc.StringProp,
 			"metadata":   jsc.JSONSchemaProps(jsc.Object, "", nil, nil, nil),
@@ -60,11 +61,21 @@ func OpenAPIV3SchemaMock() extv1beta1.JSONSchemaProps {
 }
 
 func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
+	if marshaler, ok := obj.(json.Marshaler); ok {
+		b, err := marshaler.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		data := map[string]interface{}{}
+		err = json.Unmarshal(b, data)
+		return &unstructured.Unstructured{Object: data}, err
+	} else {
+		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return nil, err
+		}
+		return &unstructured.Unstructured{Object: data}, nil
 	}
-	return &unstructured.Unstructured{Object: data}, nil
 }
 
 func UnstructuredCRMock() (*unstructured.Unstructured, error) {
@@ -204,33 +215,43 @@ func UnstructuredReplicaSetMock() (*unstructured.Unstructured, error) {
 
 func UnstructuredCRDMock() (*unstructured.Unstructured, error) {
 	crd := CRDMock()
-	return toUnstructured(&crd)
+	return toUnstructured(crd)
 }
 
-func CRDMock() extv1beta1.CustomResourceDefinition {
+func CRDMock() *extv1.CustomResourceDefinition {
 	openAPIV3Schema := OpenAPIV3SchemaMock()
-	return extv1beta1.CustomResourceDefinition{
+	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "mock",
-			Version: "v1",
-			Names: extv1beta1.CustomResourceDefinitionNames{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "",
+			Name:      "customs.mock", // plural.group
+		},
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "mock",
+			Versions: []extv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Served:  false,
+					Storage: true,
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &openAPIV3Schema,
+					},
+					Subresources:             &extv1.CustomResourceSubresources{},
+					AdditionalPrinterColumns: nil,
+				},
+			},
+			Names: extv1.CustomResourceDefinitionNames{
 				Kind:       "Custom",
 				ListKind:   "CustomList",
 				Singular:   "custom",
 				Plural:     "customs",
 				ShortNames: []string{"cst", "csts"},
 			},
-			Scope:        "Namespaced",
-			Subresources: &extv1beta1.CustomResourceSubresources{},
-			Validation: &extv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &openAPIV3Schema,
-			},
+			Scope: "Namespaced",
 		},
-		Status: extv1beta1.CustomResourceDefinitionStatus{},
+		Status: extv1.CustomResourceDefinitionStatus{},
 	}
 }

@@ -7,6 +7,7 @@ spec:
   # group name to use for REST API: /apis/<group>/<version>
   group: stable.example.com
   # list of versions supported by this CustomResourceDefinition
+  version: v1
   versions:
     - name: v1
       # Each version can be enabled/disabled by Served flag.

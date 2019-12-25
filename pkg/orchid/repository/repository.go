@@ -1,12 +1,16 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -21,8 +25,58 @@ type Repository struct {
 	orm     *orm.ORM               // orm instance
 }
 
-// crdGVK CustomServiceDefinition GVK
-var crdGVK = schema.GroupVersionKind{
+/*
+[
+  {
+    "id": 1,
+    "apiversion": "apiextensions.k8s.io/v1",
+    "kind": "CustomResourceDefinition",
+    "data": "{\"kind\": \"CustomResourceDefinition\", \"spec\": {\"group\": \"stable.example.com\", \"names\": {\"kind\": \"CronTab\", \"plural\": \"crontabs\", \"singular\": \"crontab\", \"shortNames\": [\"ct\"]}, \"scope\": \"Namespaced\", \"schema\": {\"openAPIV3Schema\": {\"type\": \"object\", \"properties\": {\"spec\": {\"type\": \"object\", \"properties\": {\"image\": {\"type\": \"string\"}, \"cronSpec\": {\"type\": \"string\"}, \"replicas\": {\"type\": \"integer\"}}}}}}, \"version\": \"v1\"}, \"metadata\": {\"name\": \"crontabs.stable.example.com\", \"namespace\": \"\", \"annotations\": {\"kubectl.kubernetes.io/last-applied-configuration\": \"{\\\"apiVersion\\\":\\\"apiextensions.k8s.io/v1\\\",\\\"kind\\\":\\\"CustomResourceDefinition\\\",\\\"metadata\\\":{\\\"annotations\\\":{},\\\"name\\\":\\\"crontabs.stable.example.com\\\",\\\"namespace\\\":\\\"\\\"},\\\"spec\\\":{\\\"group\\\":\\\"stable.example.com\\\",\\\"names\\\":{\\\"kind\\\":\\\"CronTab\\\",\\\"plural\\\":\\\"crontabs\\\",\\\"shortNames\\\":[\\\"ct\\\"],\\\"singular\\\":\\\"crontab\\\"},\\\"schema\\\":{\\\"openAPIV3Schema\\\":{\\\"properties\\\":{\\\"spec\\\":{\\\"properties\\\":{\\\"cronSpec\\\":{\\\"type\\\":\\\"string\\\"},\\\"image\\\":{\\\"type\\\":\\\"string\\\"},\\\"replicas\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"scope\\\":\\\"Namespaced\\\",\\\"version\\\":\\\"v1\\\"}}\\n\"}}, \"apiVersion\": \"apiextensions.k8s.io/v1\"}"
+  }
+]
+*/
+
+var CRDNotFoundErr = errors.New("CRD not found")
+
+func buildResourceGVK(crd *unstructured.Unstructured) schema.GroupVersionKind {
+	group, _, _ := unstructured.NestedString(crd.Object, "spec", "group")
+	version, _, _ := unstructured.NestedString(crd.Object, "spec", "version")
+	kind, _, _ := unstructured.NestedString(crd.Object, "spec", "names", "kind")
+	return schema.GroupVersionKind{
+		Group:   group,
+		Version: version,
+		Kind:    kind,
+	}
+}
+
+func (r *Repository) OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error) {
+	crds, err := r.List(CRDGVK, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, crd := range crds.Items {
+		if buildResourceGVK(&crd).String() == gvk.String() {
+			v, exists, err := unstructured.NestedFieldNoCopy(crd.Object, "spec", "validation", "openAPIV3Schema")
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				return nil, errors.New("field does not exist")
+			}
+			o, ok := v.(*extv1.JSONSchemaProps)
+			if !ok {
+				return nil, errors.New("field is not JSONSchemaProps")
+			}
+			return o, nil
+		}
+	}
+
+	return nil, CRDNotFoundErr
+}
+
+// CRDGVK CustomServiceDefinition GVK
+var CRDGVK = schema.GroupVersionKind{
 	Group:   "apiextensions.k8s.io",
 	Version: "v1",
 	Kind:    "CustomResourceDefinition",
@@ -39,7 +93,8 @@ func (r *Repository) schemaFactory(schemaName string) *orm.Schema {
 
 // schemaName returns the desired schema name based on GVK.
 func (r *Repository) schemaName(gvk schema.GroupVersionKind) string {
-	return fmt.Sprintf("%s_%s_%s", gvk.Group, gvk.Version, gvk.Kind)
+	group := strings.ReplaceAll(gvk.Group, ".", "_")
+	return fmt.Sprintf("%s_%s_%s", group, gvk.Version, gvk.Kind)
 }
 
 // createCRTables execute the create tables for the CR schema. It loads the CR schema based on
@@ -161,7 +216,7 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 	// slice of slices to capture insert data per table
 	var arguments orm.MappedMatrix
 	var err error
-	if gvk.String() == crdGVK.String() {
+	if gvk.String() == CRDGVK.String() {
 		if arguments, err = r.prepareCRD(s, u); err != nil {
 			return err
 		}
@@ -182,10 +237,7 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 
 // Read a single object from ORM, searching for a namespaced-name. It can return errors from
 // querying the database, preparing the result-set, and assembling an unstructured object.
-func (r *Repository) Read(
-	gvk schema.GroupVersionKind,
-	namespacedName types.NamespacedName,
-) (*unstructured.Unstructured, error) {
+func (r *Repository) Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error) {
 	s := r.schemaFactory(r.schemaName(gvk))
 
 	resultSet, err := r.orm.Read(s, namespacedName)
@@ -241,7 +293,7 @@ func (r *Repository) List(
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
 // has tables created. It can return error on creating CRD tables.
 func (r *Repository) Bootstrap() error {
-	s := r.schemaFactory(r.schemaName(crdGVK))
+	s := r.schemaFactory(r.schemaName(CRDGVK))
 	s.GenerateCRD()
 	return r.orm.CreateSchemaTables(s)
 }
