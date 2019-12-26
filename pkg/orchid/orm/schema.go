@@ -51,7 +51,7 @@ func (s *Schema) GetHint(tableName string) string {
 	return table.Hint
 }
 
-// TableName append suffix on schema name.
+// TableName append suffix on schema name, creating an all lowercase name.
 func (s *Schema) TableName(suffix string) string {
 	name := strings.ReplaceAll(s.Name, ".", "_")
 	return strings.ToLower(fmt.Sprintf("%s_%s", name, suffix))
@@ -82,6 +82,19 @@ func (s *Schema) TableFactory(tableName string, appendTable bool) *Table {
 		s.prepend(table)
 	}
 	return table
+}
+
+// TablesReversed reverse list of tables in Schema. Useful on creating sequence of SQL statements
+// on the correct dependency sequence, therefore Schema also leverages "append" vs. "prepend" of
+// tables being included on schema.
+func (s *Schema) TablesReversed() []*Table {
+	reversed := make([]*Table, len(s.Tables))
+	copy(reversed, s.Tables)
+	for i := len(reversed)/2 - 1; i >= 0; i-- {
+		opposite := len(reversed) - 1 - i
+		reversed[i], reversed[opposite] = reversed[opposite], reversed[i]
+	}
+	return reversed
 }
 
 // GetTable returns a table instance, if exists.
@@ -135,17 +148,6 @@ func (s *Schema) OneToManyTables(tableName string) []string {
 		}
 	}
 	return tables
-}
-
-// TablesReversed reverse list of tables in Schema.
-func (s *Schema) TablesReversed() []*Table {
-	reversed := make([]*Table, len(s.Tables))
-	copy(reversed, s.Tables)
-	for i := len(reversed)/2 - 1; i >= 0; i-- {
-		opposite := len(reversed) - 1 - i
-		reversed[i], reversed[opposite] = reversed[opposite], reversed[i]
-	}
-	return reversed
 }
 
 // GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to

@@ -41,17 +41,17 @@ func TestResultSet_New(t *testing.T) {
 	columnIDs := mockedColumnIDs(schema)
 	matrix := mockedMatrix(columnIDs)
 
-	resultSet, err := NewResultSet(schema, columnIDs, matrix)
+	rs, err := NewResultSet(schema, columnIDs, matrix)
 	assert.NoError(t, err)
-	assert.NotNil(t, resultSet)
+	assert.NotNil(t, rs)
 
-	values, err := resultSet.Get(schema.Name, "id", 0)
+	values, err := rs.Get(schema.Name, "id", 0)
 	assert.NoError(t, err)
 	assert.Len(t, values, 1)
 
-	pk, err := resultSet.GetPK(schema.Name, 0)
+	pk, err := rs.GetPK(schema.Name, 0)
 	assert.NoError(t, err)
 	assert.Len(t, pk, 5)
 
-	assert.Equal(t, len(resultSet.Data), len(schema.Tables))
+	assert.Equal(t, len(rs.Data), len(schema.Tables))
 }
