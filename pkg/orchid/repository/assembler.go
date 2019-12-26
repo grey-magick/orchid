@@ -13,9 +13,9 @@ import (
 
 // Assembler is the component to build back unstructured objects from an orm.ResultSet.
 type Assembler struct {
-	logger    logr.Logger    // logger instance
-	schema    *orm.Schema    // ORM schema
-	resultSet *orm.ResultSet // data result-set
+	logger logr.Logger    // logger instance
+	schema *orm.Schema    // ORM schema
+	rs     *orm.ResultSet // orm's result-set
 }
 
 // keyValue create object based on result-set, but assume different names for columns and structure
@@ -27,7 +27,7 @@ func (a *Assembler) keyValue(
 ) (map[string]interface{}, error) {
 	a.logger.WithValues("related", relatedTableName, "table", tableName).
 		Info("Retrieving data to assemble key-value")
-	nestedEntries, err := a.resultSet.Get(relatedTableName, tableName, pk)
+	nestedEntries, err := a.rs.Get(relatedTableName, tableName, pk)
 	if err != nil {
 		return nil, err
 	}
@@ -56,14 +56,14 @@ func (a *Assembler) slice(
 ) ([]interface{}, error) {
 	a.logger.WithValues("related", relatedTableName, "table", tableName, "columns", columns).
 		Info("Retrieving data to assemble slice")
-	relatedEntries, err := a.resultSet.Get(relatedTableName, tableName, pk)
+	relatedEntries, err := a.rs.Get(relatedTableName, tableName, pk)
 	if err != nil {
 		return nil, err
 	}
 
 	strippedEntries := []interface{}{}
 	for _, relatedEntry := range relatedEntries {
-		strippedEntry := a.resultSet.Strip(relatedEntry, columns)
+		strippedEntry := a.rs.Strip(relatedEntry, columns)
 		strippedEntries = append(strippedEntries, strippedEntry)
 	}
 	return strippedEntries, nil
@@ -157,7 +157,7 @@ func (a *Assembler) object(tableName string, pk interface{}) (map[string]interfa
 	}
 
 	a.logger.WithValues("table", tableName).Info("Retrieving data to assemble new object")
-	entry, err := a.resultSet.GetPK(tableName, pk)
+	entry, err := a.rs.GetPK(tableName, pk)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 	schemaName := strings.ToLower(a.schema.Name)
 
 	// getting the primary-keys for schema named table
-	pks, err := a.resultSet.GetColumn(schemaName, orm.PKColumnName)
+	pks, err := a.rs.GetColumn(schemaName, orm.PKColumnName)
 	if err != nil {
 		return nil, err
 	}
@@ -214,10 +214,10 @@ func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 }
 
 // NewAssembler instantiate Assembler.
-func NewAssembler(logger logr.Logger, schema *orm.Schema, resultSet *orm.ResultSet) *Assembler {
+func NewAssembler(logger logr.Logger, schema *orm.Schema, rs *orm.ResultSet) *Assembler {
 	return &Assembler{
-		logger:    logger.WithName("assembler").WithName(schema.Name),
-		schema:    schema,
-		resultSet: resultSet,
+		logger: logger.WithName("assembler").WithName(schema.Name),
+		schema: schema,
+		rs:     rs,
 	}
 }

@@ -240,12 +240,12 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 func (r *Repository) Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error) {
 	s := r.schemaFactory(r.schemaName(gvk))
 
-	resultSet, err := r.orm.Read(s, namespacedName)
+	rs, err := r.orm.Read(s, namespacedName)
 	if err != nil {
 		return nil, err
 	}
 
-	assembler := NewAssembler(r.logger, s, resultSet)
+	assembler := NewAssembler(r.logger, s, rs)
 	objects, err := assembler.Build()
 	if err != nil {
 		return nil, err
@@ -271,12 +271,12 @@ func (r *Repository) List(
 		return nil, err
 	}
 
-	resultSet, err := r.orm.List(s, labelsSet)
+	rs, err := r.orm.List(s, labelsSet)
 	if err != nil {
 		return nil, err
 	}
 
-	assembler := NewAssembler(r.logger, s, resultSet)
+	assembler := NewAssembler(r.logger, s, rs)
 	objects, err := assembler.Build()
 	if err != nil {
 		return nil, err
