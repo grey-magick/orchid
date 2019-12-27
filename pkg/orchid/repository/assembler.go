@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -208,7 +209,25 @@ func (a *Assembler) Build() ([]*unstructured.Unstructured, error) {
 		if err != nil {
 			return nil, err
 		}
-		objects = append(objects, &unstructured.Unstructured{Object: object})
+		u := &unstructured.Unstructured{Object: object}
+		if u.GroupVersionKind().String() == CRDGVK.String() {
+			data, exists, err := unstructured.NestedFieldNoCopy(object, "data")
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				return nil, errors.New("expected field 'data' not present in object")
+			}
+			uObj, ok := data.([]byte)
+			if !ok {
+				return nil, errors.New("value in field 'data' can not be converted to map[string]interface{}")
+			}
+			err = u.UnmarshalJSON(uObj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		objects = append(objects, u)
 	}
 	return objects, nil
 }
