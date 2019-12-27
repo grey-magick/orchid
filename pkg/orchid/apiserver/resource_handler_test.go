@@ -71,7 +71,7 @@ func TestAPIResourceHandler_ResourcePostHandler(t *testing.T) {
 			h := &APIResourceHandler{
 				Logger:     args.logger,
 				Repository: args.repository,
-				Validator:  validation.NewValidator(args.repository),
+				Validator:  validation.NewRepositoryValidator(args.repository),
 			}
 			got, err := h.ResourcePostHandler(args.vars, args.body)
 			if args.wantErr {
@@ -203,7 +203,7 @@ func TestAPIResourceHandler_Validate(t *testing.T) {
 
 	assertValidation := func(args args) func(*testing.T) {
 		return func(t *testing.T) {
-			v := validation.NewValidator(args.repository)
+			v := validation.NewRepositoryValidator(args.repository)
 			err := v.Validate(args.obj)
 			if args.wantErr {
 				require.Error(t, err)

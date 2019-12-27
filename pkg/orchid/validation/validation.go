@@ -123,9 +123,10 @@ func ExtractOpenAPIV3Schema(obj map[string]interface{}) (*apiextensionsv1.JSONSc
 		return nil, err
 	}
 	return schemaProps, nil
-
 }
 
-func NewValidator(repository repository.ObjectRepository) *repositoryValidator {
+// NewRepositoryValidator creates a new validator that knows how to obtain JSON Schema properties for
+// validation through the given repository.
+func NewRepositoryValidator(repository repository.ObjectRepository) Validator {
 	return &repositoryValidator{Repository: repository}
 }

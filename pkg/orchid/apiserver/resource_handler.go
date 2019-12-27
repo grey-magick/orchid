@@ -204,6 +204,6 @@ func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository
 	return &APIResourceHandler{
 		Repository: repository,
 		Logger:     logger,
-		Validator:  validation.NewValidator(repository),
+		Validator:  validation.NewRepositoryValidator(repository),
 	}
 }
