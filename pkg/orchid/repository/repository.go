@@ -105,7 +105,7 @@ func (r *Repository) createCRTables(u *unstructured.Unstructured) error {
 	if err != nil {
 		return err
 	}
-	crGVK, err := extractCRGVKFromCRD(u.Object)
+	crGVK, err := ExtractCRGVKFromCRD(u.Object)
 	if err != nil {
 		return err
 	}

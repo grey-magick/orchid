@@ -176,8 +176,8 @@ func extractCRDOpenAPIV3Schema(obj map[string]interface{}) (*extv1.JSONSchemaPro
 	return openAPIV3Schema, nil
 }
 
-// extractCRGVKFromCRD extract target CR GVK from a CRD object.
-func extractCRGVKFromCRD(obj map[string]interface{}) (schema.GroupVersionKind, error) {
+// ExtractCRGVKFromCRD extract target CR GVK from a CRD object.
+func ExtractCRGVKFromCRD(obj map[string]interface{}) (schema.GroupVersionKind, error) {
 	gvk := schema.GroupVersionKind{}
 
 	data, err := nestedMap(obj, []string{"spec"})
