@@ -32,16 +32,16 @@ func (c *CRD) crdTable() {
 	metadataTable.AddSerialPK()
 	metadataTable.AddBigIntFK(tableName, tableName, PKColumnName, false)
 	metadataTable.AddColumn(&Column{
-		Name:         "name",
-		Type:         PgTypeText,
-		OriginalType: JSTypeString,
-		NotNull:      true,
+		Name:    "name",
+		Type:    PgTypeText,
+		JSType:  jsc.String,
+		NotNull: true,
 	})
 	metadataTable.AddColumn(&Column{
-		Name:         "namespace",
-		Type:         PgTypeText,
-		OriginalType: JSTypeString,
-		NotNull:      false,
+		Name:    "namespace",
+		Type:    PgTypeText,
+		JSType:  jsc.String,
+		NotNull: false,
 	})
 }
 
