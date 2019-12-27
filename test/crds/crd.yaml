@@ -18,6 +18,13 @@ spec:
         openAPIV3Schema:
           type: object
           properties:
+            metadata:
+              type: object
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
             spec:
               type: object
               properties:
