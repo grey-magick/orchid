@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -153,6 +154,9 @@ func (s *Schema) OneToManyTables(tableName string) []string {
 // GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to
 // create tables and columns. Can return error on JSON-Schema parsing.
 func (s *Schema) GenerateCR(openAPIV3Schema *extv1.JSONSchemaProps) error {
+	if openAPIV3Schema == nil {
+		return errors.New("invalid argument: openAPIV3Schema is required")
+	}
 	// intercepting "metadata" attribute, making sure only on the first level
 	if _, found := openAPIV3Schema.Properties["metadata"]; found {
 		metadata := openAPIV3Schema.Properties["metadata"]
