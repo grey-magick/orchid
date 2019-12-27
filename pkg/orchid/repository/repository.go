@@ -290,12 +290,85 @@ func (r *Repository) List(
 	return list, nil
 }
 
+// CRDDefinition is the CustomResourceDefinition of a CustomResourceDefinition.
+var CRDDefinition = &apiextensionsv1.CustomResourceDefinition{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "customresourcedefinitions.apiextensions.k8s.io",
+	},
+	TypeMeta: metav1.TypeMeta{
+		Kind:       "CustomResourceDefinition",
+		APIVersion: "apiextensions.k8s.io/v1",
+	},
+	Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+		Group: "apiextensions.k8s.io",
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:     "customresourcedefinitions",
+			Singular:   "customresourcedefinition",
+			ShortNames: []string{"crd", "crds"},
+			Kind:       "CustomResourceDefinition",
+			ListKind:   "CustomResourceDefinitionList",
+			Categories: nil,
+		},
+		Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+			{
+				Name: "v1",
+				Schema: &apiextensionsv1.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+						Properties: map[string]apiextensionsv1.JSONSchemaProps{
+							"spec": {
+								Type: "object",
+								Properties: map[string]apiextensionsv1.JSONSchemaProps{
+									"group": {Type: "string"},
+									"names": {
+										Type: "object",
+										Properties: map[string]apiextensionsv1.JSONSchemaProps{
+											"plural":   {Type: "string"},
+											"singular": {Type: "string"},
+											"kind":     {Type: "string"},
+											"listKind": {Type: "string"},
+										},
+									},
+									"versions": {
+										Type: "array",
+										AdditionalItems: &apiextensionsv1.JSONSchemaPropsOrBool{
+											Schema: &apiextensionsv1.JSONSchemaProps{
+												Type: "object",
+												Properties: map[string]apiextensionsv1.JSONSchemaProps{
+													"name":   {Type: "string"},
+													"schema": {Type: "object"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
 // has tables created. It can return error on creating CRD tables.
 func (r *Repository) Bootstrap() error {
 	s := r.schemaFactory(r.schemaName(CRDGVK))
 	s.GenerateCRD()
-	return r.orm.CreateSchemaTables(s)
+	err := r.orm.CreateSchemaTables(s)
+	if err != nil {
+		return err
+	}
+	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(CRDDefinition)
+	if err != nil {
+		return err
+	}
+	u := &unstructured.Unstructured{Object: uObj}
+	arguments, err := r.prepareCRD(s, u)
+	if err != nil {
+		return err
+	}
+	return r.orm.Create(s, arguments)
 }
 
 // NewRepository instantiate repository.
