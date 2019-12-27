@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/repository"
@@ -51,19 +50,10 @@ var (
 	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
-// ObjectRepository is the repository interface
-type ObjectRepository interface {
-	Create(u *unstructured.Unstructured) error
-	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (k8sruntime.Object, error)
-	// OpenAPIV3SchemaForGVK discovers the OpenAPIV3Schema for the given gvk.
-	// TODO: move this to another component
-	OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error)
-}
-
 // APIResourceHandler is responsible for responding API resource requests.
 type APIResourceHandler struct {
 	Logger     logr.Logger
-	Repository ObjectRepository
+	Repository repository.ObjectRepository
 }
 
 // ObjectLister returns a list of objects.

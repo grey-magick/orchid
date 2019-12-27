@@ -17,6 +17,14 @@ import (
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
+// ObjectRepository is the repository interface
+type ObjectRepository interface {
+	Create(u *unstructured.Unstructured) error
+	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error)
+	List(gvk schema.GroupVersionKind, options metav1.ListOptions) (*unstructured.UnstructuredList, error)
+}
+
+// OpenAPIV3SchemaForGVK discovers the OpenAPIV3Schema for the given gvk.
 // Repository on which data is handled regarding ORM Schemas and data extrated from Unstructured,
 // being ready to store CRD data in a sightly different way than regular CRs.
 type Repository struct {
