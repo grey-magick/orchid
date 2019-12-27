@@ -40,7 +40,7 @@ func InsertStatement(schema *Schema) []string {
 func SelectStatement(schema *Schema, where []string) string {
 	statementColumns := []string{}
 	statementFrom := []string{}
-	statementWhere := []string{}
+	statementWhere := []string{"1=1"}
 
 	for _, table := range schema.TablesReversed() {
 		columns := []string{PKColumnName}
