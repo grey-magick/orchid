@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -30,57 +29,7 @@ type ObjectRepository interface {
 type Repository struct {
 	logger  logr.Logger            // logger instance
 	schemas map[string]*orm.Schema // schema name and instance
-	orm     *orm.ORM               // orm instance
-}
-
-/*
-[
-  {
-    "id": 1,
-    "apiversion": "apiextensions.k8s.io/v1",
-    "kind": "CustomResourceDefinition",
-    "data": "{\"kind\": \"CustomResourceDefinition\", \"spec\": {\"group\": \"stable.example.com\", \"names\": {\"kind\": \"CronTab\", \"plural\": \"crontabs\", \"singular\": \"crontab\", \"shortNames\": [\"ct\"]}, \"scope\": \"Namespaced\", \"schema\": {\"openAPIV3Schema\": {\"type\": \"object\", \"properties\": {\"spec\": {\"type\": \"object\", \"properties\": {\"image\": {\"type\": \"string\"}, \"cronSpec\": {\"type\": \"string\"}, \"replicas\": {\"type\": \"integer\"}}}}}}, \"version\": \"v1\"}, \"metadata\": {\"name\": \"crontabs.stable.example.com\", \"namespace\": \"\", \"annotations\": {\"kubectl.kubernetes.io/last-applied-configuration\": \"{\\\"apiVersion\\\":\\\"apiextensions.k8s.io/v1\\\",\\\"kind\\\":\\\"CustomResourceDefinition\\\",\\\"metadata\\\":{\\\"annotations\\\":{},\\\"name\\\":\\\"crontabs.stable.example.com\\\",\\\"namespace\\\":\\\"\\\"},\\\"spec\\\":{\\\"group\\\":\\\"stable.example.com\\\",\\\"names\\\":{\\\"kind\\\":\\\"CronTab\\\",\\\"plural\\\":\\\"crontabs\\\",\\\"shortNames\\\":[\\\"ct\\\"],\\\"singular\\\":\\\"crontab\\\"},\\\"schema\\\":{\\\"openAPIV3Schema\\\":{\\\"properties\\\":{\\\"spec\\\":{\\\"properties\\\":{\\\"cronSpec\\\":{\\\"type\\\":\\\"string\\\"},\\\"image\\\":{\\\"type\\\":\\\"string\\\"},\\\"replicas\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"scope\\\":\\\"Namespaced\\\",\\\"version\\\":\\\"v1\\\"}}\\n\"}}, \"apiVersion\": \"apiextensions.k8s.io/v1\"}"
-  }
-]
-*/
-
-var CRDNotFoundErr = errors.New("CRD not found")
-
-func buildResourceGVK(crd *unstructured.Unstructured) schema.GroupVersionKind {
-	group, _, _ := unstructured.NestedString(crd.Object, "spec", "group")
-	version, _, _ := unstructured.NestedString(crd.Object, "spec", "version")
-	kind, _, _ := unstructured.NestedString(crd.Object, "spec", "names", "kind")
-	return schema.GroupVersionKind{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
-	}
-}
-
-func (r *Repository) OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error) {
-	crds, err := r.List(CRDGVK, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, crd := range crds.Items {
-		if buildResourceGVK(&crd).String() == gvk.String() {
-			v, exists, err := unstructured.NestedFieldNoCopy(crd.Object, "spec", "validation", "openAPIV3Schema")
-			if err != nil {
-				return nil, err
-			}
-			if !exists {
-				return nil, errors.New("field does not exist")
-			}
-			o, ok := v.(*extv1.JSONSchemaProps)
-			if !ok {
-				return nil, errors.New("field is not JSONSchemaProps")
-			}
-			return o, nil
-		}
-	}
-
-	return nil, CRDNotFoundErr
+	orm     *orm.ORM               // orcrdGVKm instance
 }
 
 // CRDGVK CustomServiceDefinition GVK
