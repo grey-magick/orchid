@@ -43,7 +43,7 @@ func (o *ORM) Connect() error {
 	return err
 }
 
-// interpolate table columne's argument with cached primary-keys, in order to complete the desired
+// interpolate table column's argument with cached primary-keys, in order to complete the desired
 // amount of columns with foreign-keys.
 func (o *ORM) interpolate(table *Table, arguments List, cachedIDs map[string]int64) (List, error) {
 	argumentWithFK := make(List, 0)
@@ -150,7 +150,7 @@ func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 			continue
 		}
 		logger = logger.WithValues(
-			"statemnet", statement, "rows", len(arguments), "table", table.Name)
+			"statement", statement, "rows", len(arguments), "table", table.Name)
 
 		// for each row found for that
 		for _, argument := range arguments {

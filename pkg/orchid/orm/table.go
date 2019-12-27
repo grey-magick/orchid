@@ -21,7 +21,7 @@ type Table struct {
 // PKColumnName primary-key column name
 const PKColumnName = "id"
 
-// buildHint create a hint out of a name, by splitting on underscore and using the first charactere.
+// buildHint create a hint out of a name, by splitting on underscore and using its first character.
 func (t *Table) buildHint() {
 	var short string
 	for _, section := range strings.Split(t.Name, "_") {
