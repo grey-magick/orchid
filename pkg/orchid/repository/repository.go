@@ -25,17 +25,6 @@ type Repository struct {
 	orm     *orm.ORM               // orm instance
 }
 
-/*
-[
-  {
-    "id": 1,
-    "apiversion": "apiextensions.k8s.io/v1",
-    "kind": "CustomResourceDefinition",
-    "data": "{\"kind\": \"CustomResourceDefinition\", \"spec\": {\"group\": \"stable.example.com\", \"names\": {\"kind\": \"CronTab\", \"plural\": \"crontabs\", \"singular\": \"crontab\", \"shortNames\": [\"ct\"]}, \"scope\": \"Namespaced\", \"schema\": {\"openAPIV3Schema\": {\"type\": \"object\", \"properties\": {\"spec\": {\"type\": \"object\", \"properties\": {\"image\": {\"type\": \"string\"}, \"cronSpec\": {\"type\": \"string\"}, \"replicas\": {\"type\": \"integer\"}}}}}}, \"version\": \"v1\"}, \"metadata\": {\"name\": \"crontabs.stable.example.com\", \"namespace\": \"\", \"annotations\": {\"kubectl.kubernetes.io/last-applied-configuration\": \"{\\\"apiVersion\\\":\\\"apiextensions.k8s.io/v1\\\",\\\"kind\\\":\\\"CustomResourceDefinition\\\",\\\"metadata\\\":{\\\"annotations\\\":{},\\\"name\\\":\\\"crontabs.stable.example.com\\\",\\\"namespace\\\":\\\"\\\"},\\\"spec\\\":{\\\"group\\\":\\\"stable.example.com\\\",\\\"names\\\":{\\\"kind\\\":\\\"CronTab\\\",\\\"plural\\\":\\\"crontabs\\\",\\\"shortNames\\\":[\\\"ct\\\"],\\\"singular\\\":\\\"crontab\\\"},\\\"schema\\\":{\\\"openAPIV3Schema\\\":{\\\"properties\\\":{\\\"spec\\\":{\\\"properties\\\":{\\\"cronSpec\\\":{\\\"type\\\":\\\"string\\\"},\\\"image\\\":{\\\"type\\\":\\\"string\\\"},\\\"replicas\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"type\\\":\\\"object\\\"}},\\\"scope\\\":\\\"Namespaced\\\",\\\"version\\\":\\\"v1\\\"}}\\n\"}}, \"apiVersion\": \"apiextensions.k8s.io/v1\"}"
-  }
-]
-*/
-
 var CRDNotFoundErr = errors.New("CRD not found")
 
 func buildResourceGVK(crd *unstructured.Unstructured) schema.GroupVersionKind {
@@ -237,7 +226,10 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 
 // Read a single object from ORM, searching for a namespaced-name. It can return errors from
 // querying the database, preparing the result-set, and assembling an unstructured object.
-func (r *Repository) Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error) {
+func (r *Repository) Read(
+	gvk schema.GroupVersionKind,
+	namespacedName types.NamespacedName,
+) (runtime.Object, error) {
 	s := r.schemaFactory(r.schemaName(gvk))
 
 	rs, err := r.orm.Read(s, namespacedName)
