@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,7 +30,7 @@ type repositoryValidator struct {
 }
 
 // discoverOpenAPIV3Schema returns the JSON Schema properties associated with the given gvk.
-func (v *repositoryValidator) discoverOpenAPIV3Schema(gvk schema.GroupVersionKind) (*apiextensionsv1.JSONSchemaProps, error) {
+func (v *repositoryValidator) discoverOpenAPIV3Schema(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error) {
 	crds, err := v.Repository.List(repository.CRDGVK, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -69,11 +69,11 @@ func (v *repositoryValidator) Validate(obj *unstructured.Unstructured) error {
 	if err != nil {
 		return err
 	}
-	in := &apiextensionsv1.CustomResourceValidation{
+	in := &extv1.CustomResourceValidation{
 		OpenAPIV3Schema: openAPIV3Schema,
 	}
 	out := &apiextensions.CustomResourceValidation{}
-	err = apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(in, out, nil)
+	err = extv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(in, out, nil)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (v *repositoryValidator) Validate(obj *unstructured.Unstructured) error {
 //
 // It assumes '.spec.versions' to exist, and to contain exactly one entry; its name is currently
 // being ignored.
-func ExtractOpenAPIV3Schema(obj map[string]interface{}) (*apiextensionsv1.JSONSchemaProps, error) {
+func ExtractOpenAPIV3Schema(obj map[string]interface{}) (*extv1.JSONSchemaProps, error) {
 	versions, exists, err := unstructured.NestedSlice(obj, "spec", "versions")
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func ExtractOpenAPIV3Schema(obj map[string]interface{}) (*apiextensionsv1.JSONSc
 	if !exists {
 		return nil, SchemaNotFoundErr
 	}
-	schemaProps := &apiextensionsv1.JSONSchemaProps{}
+	schemaProps := &extv1.JSONSchemaProps{}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(schemaMap, schemaProps)
 	if err != nil {
 		return nil, err

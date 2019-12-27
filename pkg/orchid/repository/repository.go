@@ -248,7 +248,7 @@ func (r *Repository) List(
 }
 
 // CRDDefinition is the CustomResourceDefinition of a CustomResourceDefinition.
-var CRDDefinition = &apiextensionsv1.CustomResourceDefinition{
+var CRDDefinition = &extv1.CustomResourceDefinition{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: "customresourcedefinitions.apiextensions.k8s.io",
 	},
@@ -256,9 +256,9 @@ var CRDDefinition = &apiextensionsv1.CustomResourceDefinition{
 		Kind:       "CustomResourceDefinition",
 		APIVersion: "apiextensions.k8s.io/v1",
 	},
-	Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+	Spec: extv1.CustomResourceDefinitionSpec{
 		Group: "apiextensions.k8s.io",
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "customresourcedefinitions",
 			Singular:   "customresourcedefinition",
 			ShortNames: []string{"crd", "crds"},
@@ -266,19 +266,19 @@ var CRDDefinition = &apiextensionsv1.CustomResourceDefinition{
 			ListKind:   "CustomResourceDefinitionList",
 			Categories: nil,
 		},
-		Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name: "v1",
-				Schema: &apiextensionsv1.CustomResourceValidation{
-					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-						Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				Schema: &extv1.CustomResourceValidation{
+					OpenAPIV3Schema: &extv1.JSONSchemaProps{
+						Properties: map[string]extv1.JSONSchemaProps{
 							"spec": {
 								Type: "object",
-								Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								Properties: map[string]extv1.JSONSchemaProps{
 									"group": {Type: "string"},
 									"names": {
 										Type: "object",
-										Properties: map[string]apiextensionsv1.JSONSchemaProps{
+										Properties: map[string]extv1.JSONSchemaProps{
 											"plural":   {Type: "string"},
 											"singular": {Type: "string"},
 											"kind":     {Type: "string"},
@@ -287,10 +287,10 @@ var CRDDefinition = &apiextensionsv1.CustomResourceDefinition{
 									},
 									"versions": {
 										Type: "array",
-										AdditionalItems: &apiextensionsv1.JSONSchemaPropsOrBool{
-											Schema: &apiextensionsv1.JSONSchemaProps{
+										AdditionalItems: &extv1.JSONSchemaPropsOrBool{
+											Schema: &extv1.JSONSchemaProps{
 												Type: "object",
-												Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												Properties: map[string]extv1.JSONSchemaProps{
 													"name":   {Type: "string"},
 													"schema": {Type: "object"},
 												},
