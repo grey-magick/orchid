@@ -73,7 +73,7 @@ func TestSchema_CR(t *testing.T) {
 }
 
 func TestSchema_CRD(t *testing.T) {
-	const expectedAmountOfTables = 1
+	const expectedAmountOfTables = 2
 
 	logger := klogr.New().WithName("test")
 	schema := NewSchema(logger, "crd")
