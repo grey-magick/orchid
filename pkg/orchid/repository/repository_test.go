@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,19 +12,74 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 
+	"github.com/isutton/orchid/pkg/orchid/config"
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/pkg/orchid/orm"
 	"github.com/isutton/orchid/test/mocks"
 )
 
-func TestRepository_New(t *testing.T) {
+func buildTestRepository(t *testing.T) (logr.Logger, *Repository) {
 	logger := klogr.New().WithName("test")
+	config := &config.Config{Username: "postgres", Password: "1", Options: "sslmode=disable"}
 
-	pgORM := orm.NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
-	err := pgORM.Connect()
+	r := NewRepository(logger, config)
+	require.NotNil(t, r)
+	return logger, r
+}
+
+func TestRepository_decompose(t *testing.T) {
+	logger, repo := buildTestRepository(t)
+
+	schemaName := "orchid"
+	s := orm.NewSchema(logger, schemaName)
+
+	openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
+	err := s.Generate(&openAPIV3Schema)
+	require.NoError(t, err)
+
+	u, err := mocks.UnstructuredCRDMock()
+	require.NoError(t, err)
+
+	matrix, err := repo.decompose(s, u)
+	require.NoError(t, err)
+	require.NotNil(t, matrix)
+
+	t.Logf("matrix='%#v'", matrix)
+
+	table, err := s.GetTable(schemaName)
+	require.NoError(t, err)
+
+	// looking for column position in order to acquire data from matrix
+	columnPosition := -1
+	for position, column := range table.ColumNames() {
+		if column == orm.XEmbeddedResource {
+			columnPosition = position
+			break
+		}
+	}
+	require.NotEqual(t, -1, columnPosition)
+
+	row, found := matrix[schemaName]
+	require.True(t, found)
+	require.Len(t, row, 1)
+
+	jsonData, ok := row[0][columnPosition].(string)
+	require.True(t, ok)
+	assert.NotNil(t, jsonData)
+
+	t.Logf("json='%s'", jsonData)
+
+	// making sure json data also has a new line appended
+	jsonData = fmt.Sprintf("%s\n", jsonData)
+
+	// comparing json data with original object
+	bytes, err := u.MarshalJSON()
 	assert.NoError(t, err)
+	assert.Equal(t, jsonData, string(bytes))
+}
 
-	repo := NewRepository(logger, pgORM)
-	assert.NotNil(t, repo)
+func TestRepository_New(t *testing.T) {
+	_, repo := buildTestRepository(t)
 
 	t.Run("Bootstrap", func(t *testing.T) {
 		err := repo.Bootstrap()
@@ -38,12 +95,18 @@ func TestRepository_New(t *testing.T) {
 	})
 
 	cr, err := mocks.UnstructuredCRMock()
-	require.NoError(t, err)
 	t.Logf("cr='%#v'", cr)
+	require.NoError(t, err)
 
 	gvk := cr.GetObjectKind().GroupVersionKind()
 
-	_, err = pgORM.DB.Query("truncate table mock_v1_custom cascade")
+	o, s, err := repo.factory(DefaultNamespace, gvk)
+	require.NoError(t, err)
+
+	table, err := s.GetTable(s.Name)
+	require.NoError(t, err)
+	// cleaning up before other tests
+	_, err = o.DB.Exec(fmt.Sprintf("truncate table %s cascade", table.Name))
 	require.NoError(t, err)
 
 	t.Run("Create-CR", func(t *testing.T) {
@@ -73,7 +136,7 @@ func TestRepository_New(t *testing.T) {
 		require.NoError(t, err)
 
 		options := metav1.ListOptions{LabelSelector: "label=label"}
-		list, err := repo.List(gvk, options)
+		list, err := repo.List("orchid", gvk, options)
 		require.NoError(t, err)
 
 		t.Logf("List size '%d'", len(list.Items))

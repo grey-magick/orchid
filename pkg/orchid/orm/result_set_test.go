@@ -35,7 +35,7 @@ func TestResultSet_New(t *testing.T) {
 	schema := NewSchema(logger, "result_set")
 
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
-	err := schema.GenerateCR(&openAPIV3Schema)
+	err := schema.Generate(&openAPIV3Schema)
 	assert.NoError(t, err)
 
 	columnIDs := mockedColumnIDs(schema)

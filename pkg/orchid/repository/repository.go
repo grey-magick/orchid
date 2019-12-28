@@ -1,12 +1,10 @@
 package repository
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,55 +12,23 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/isutton/orchid/pkg/orchid/config"
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
 // Repository on which data is handled regarding ORM Schemas and data extrated from Unstructured,
 // being ready to store CRD data in a sightly different way than regular CRs.
 type Repository struct {
-	logger  logr.Logger            // logger instance
-	schemas map[string]*orm.Schema // schema name and instance
-	orm     *orm.ORM               // orm instance
+	logger          logr.Logger                    // logger instance
+	config          *config.Config                 // configuration instance
+	schemas         map[string]*orm.Schema         // schema name and instance
+	orms            map[string]map[string]*orm.ORM // namespace and instances by name
+	gvkPerNamespace map[string][]string            //cached list of where GVK has been applied
 }
 
-var CRDNotFoundErr = errors.New("CRD not found")
-
-func buildResourceGVK(crd *unstructured.Unstructured) schema.GroupVersionKind {
-	group, _, _ := unstructured.NestedString(crd.Object, "spec", "group")
-	version, _, _ := unstructured.NestedString(crd.Object, "spec", "version")
-	kind, _, _ := unstructured.NestedString(crd.Object, "spec", "names", "kind")
-	return schema.GroupVersionKind{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
-	}
-}
-
-func (r *Repository) OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error) {
-	crds, err := r.List(CRDGVK, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, crd := range crds.Items {
-		if buildResourceGVK(&crd).String() == gvk.String() {
-			v, exists, err := unstructured.NestedFieldNoCopy(crd.Object, "spec", "validation", "openAPIV3Schema")
-			if err != nil {
-				return nil, err
-			}
-			if !exists {
-				return nil, errors.New("field does not exist")
-			}
-			o, ok := v.(*extv1.JSONSchemaProps)
-			if !ok {
-				return nil, errors.New("field is not JSONSchemaProps")
-			}
-			return o, nil
-		}
-	}
-
-	return nil, CRDNotFoundErr
-}
+// DefaultNamespace namespace name or orchid's metadata
+const DefaultNamespace = "orchid"
 
 // CRDGVK CustomServiceDefinition GVK
 var CRDGVK = schema.GroupVersionKind{
@@ -71,91 +37,66 @@ var CRDGVK = schema.GroupVersionKind{
 	Kind:    "CustomResourceDefinition",
 }
 
-// schemaFactory make sure a single instance per schema name is used.
+// ormFactory creates a single ORM bootstrapped instance per namespace GVK.Group combination.
+func (r *Repository) ormFactory(ns string, group string) *orm.ORM {
+	if _, exists := r.orms[ns]; !exists {
+		r.orms[ns] = map[string]*orm.ORM{}
+	}
+	if _, exists := r.orms[ns][group]; !exists {
+		r.logger.WithValues("database", ns, "group", group).Info("Instantiating ORM...")
+		r.orms[ns][group] = orm.NewORM(r.logger, ns, group, r.config)
+	}
+	return r.orms[ns][group]
+}
+
+// schemaFactory creates a single schema instance per name.
 func (r *Repository) schemaFactory(schemaName string) *orm.Schema {
 	_, exists := r.schemas[schemaName]
 	if !exists {
+		r.logger.WithValues("schema", schemaName).Info("Instantiating Schema...")
 		r.schemas[schemaName] = orm.NewSchema(r.logger, schemaName)
 	}
 	return r.schemas[schemaName]
 }
 
-// schemaName returns the desired schema name based on GVK.
-func (r *Repository) schemaName(gvk schema.GroupVersionKind) string {
+// schemaNameforGVK returns a orm.Schema name for a given GVK.
+func (r *Repository) schemaNameforGVK(gvk schema.GroupVersionKind) string {
+	return fmt.Sprintf("%s_%s", gvk.Version, gvk.Kind)
+}
+
+// factory instantiate the schema and ORM instances, making sure a single instance is in use for
+// the combination of namespace and GVK.
+func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, *orm.Schema, error) {
+	if gvk.Group == "" || gvk.Version == "" || gvk.Kind == "" {
+		return nil, nil, fmt.Errorf("incomplete GVK '%#v'", gvk)
+	}
+
 	group := strings.ReplaceAll(gvk.Group, ".", "_")
-	return fmt.Sprintf("%s_%s_%s", group, gvk.Version, gvk.Kind)
-}
+	o := r.ormFactory(ns, group)
+	s := r.schemaFactory(r.schemaNameforGVK(gvk))
 
-// createCRTables execute the create tables for the CR schema. It loads the CR schema based on
-// parsing the unstructured object informed. It can return error on extracting data from the
-// object.
-func (r *Repository) createCRTables(u *unstructured.Unstructured) error {
-	openAPIV3Schema, err := extractCRDOpenAPIV3Schema(u.Object)
-	if err != nil {
-		return err
-	}
-	crGVK, err := extractCRGVKFromCRD(u.Object)
-	if err != nil {
-		return err
-	}
-
-	crSchema := r.schemaFactory(r.schemaName(crGVK))
-	if err = crSchema.GenerateCR(openAPIV3Schema); err != nil {
-		return err
-	}
-
-	return r.orm.CreateSchemaTables(crSchema)
-}
-
-// prepareCRD prepare the data matrix from a given CRD resource, informed as unstructured. It can
-// return error in case of trying to extract data.
-func (r *Repository) prepareCRD(
-	s *orm.Schema,
-	u *unstructured.Unstructured,
-) (orm.MappedMatrix, error) {
-	obj := u.Object
-	crd := make(orm.MappedMatrix)
-
-	for _, table := range s.Tables {
-		dataColumns := []interface{}{}
-		for _, column := range table.Columns {
-			if table.IsPrimaryKey(column.Name) || table.IsForeignKey(column.Name) {
-				continue
-			}
-
-			// CRD data is saved as regular json, in a JSONB column, therefore it's extracted as a
-			// single entry.
-			var data interface{}
-			if column.Name == orm.CRDRawColumn {
-				json, err := u.MarshalJSON()
-				if err != nil {
-					return nil, err
-				}
-				data = string(json)
-			} else {
-				var err error
-				columnFieldPath := append(table.Path, column.Name)
-				data, err = extractPath(obj, column.JSType, columnFieldPath)
-				if err != nil {
-					if column.NotNull {
-						return nil, err
-					}
-					if data, err = column.Null(); err != nil {
-						return nil, err
-					}
-				}
-			}
-			dataColumns = append(dataColumns, data)
+	// checking when database connection is not yet instantiated to check if schemas has tables
+	// defined, and therefore create them, after this steps the database connection will be
+	// instantiated and thus won't be subject to connect or create-tables again
+	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
+	if o.DB == nil {
+		logger.Info("Bootstraping database connection...")
+		if err := o.Bootstrap(); err != nil {
+			return nil, nil, err
 		}
-		crd[table.Name] = append(crd[table.Name], dataColumns)
+		if len(s.Tables) > 0 {
+			logger.Info("Creating schema tables")
+			if err := o.CreateTables(s); err != nil {
+				return nil, nil, err
+			}
+		}
 	}
-
-	return crd, nil
+	return o, s, nil
 }
 
-// prepareCR prepare the data matrix from any CR resource, informed as unstructured. It can return
+// decompose prepare the data matrix from any CR resource, informed as unstructured. It can return
 // error on trying to find expected data entries.
-func (r *Repository) prepareCR(
+func (r *Repository) decompose(
 	s *orm.Schema,
 	u *unstructured.Unstructured,
 ) (orm.MappedMatrix, error) {
@@ -194,34 +135,61 @@ func (r *Repository) prepareCR(
 	return cr, nil
 }
 
+// initializeSchema extracts the GVK and OpenAPI Schema from CRD object, and initialize orm.Schema.
+// It can return errors on extracting data.
+func (r *Repository) initializeSchema(obj map[string]interface{}) error {
+	gvk, err := extractCRGVKFromCRD(obj)
+	if err != nil {
+		return err
+	}
+	openAPIV3Schema, err := extractCRDOpenAPIV3Schema(obj)
+	if err != nil {
+		return err
+	}
+	crSchema := r.schemaFactory(r.schemaNameforGVK(gvk))
+	return crSchema.Generate(openAPIV3Schema)
+}
+
 // Create will persist a given resource, informed as unstructured, using the ORM instance. It gives
 // special treatment for CRD objects, besides of being stored, they also trigger parsing of
 // OpenAPI Schema and creation of respective tables. When not an CRD object, it will only take care
 // of storing the data. It can return error on extracting object data and on storing.
 func (r *Repository) Create(u *unstructured.Unstructured) error {
 	gvk := u.GetObjectKind().GroupVersionKind()
-	s := r.schemaFactory(r.schemaName(gvk))
+	isCRD := gvk.String() == CRDGVK.String()
 
-	// slice of slices to capture insert data per table
-	var arguments orm.MappedMatrix
-	var err error
-	if gvk.String() == CRDGVK.String() {
-		if arguments, err = r.prepareCRD(s, u); err != nil {
-			return err
-		}
-		if err = r.createCRTables(u); err != nil {
-			return err
-		}
+	var ns string
+	if isCRD {
+		ns = DefaultNamespace
 	} else {
-		if arguments, err = r.prepareCR(s, u); err != nil {
+		ns = u.GetNamespace()
+	}
+
+	o, s, err := r.factory(ns, gvk)
+	if err != nil {
+		return err
+	}
+	if o.DB == nil {
+		if err = o.CreateTables(s); err != nil {
 			return err
 		}
 	}
 
+	arguments, err := r.decompose(s, u)
+	if err != nil {
+		return err
+	}
 	if len(arguments) == 0 {
 		return fmt.Errorf("unable to parse arguments from object")
 	}
-	return r.orm.Create(s, arguments)
+	if err = o.Create(s, arguments); err != nil {
+		return err
+	}
+
+	if isCRD {
+		return r.initializeSchema(u.Object)
+	}
+	return nil
 }
 
 // Read a single object from ORM, searching for a namespaced-name. It can return errors from
@@ -230,9 +198,11 @@ func (r *Repository) Read(
 	gvk schema.GroupVersionKind,
 	namespacedName types.NamespacedName,
 ) (runtime.Object, error) {
-	s := r.schemaFactory(r.schemaName(gvk))
-
-	rs, err := r.orm.Read(s, namespacedName)
+	o, s, err := r.factory(namespacedName.Namespace, gvk)
+	if err != nil {
+		return nil, err
+	}
+	rs, err := o.Read(s, namespacedName)
 	if err != nil {
 		return nil, err
 	}
@@ -253,17 +223,21 @@ func (r *Repository) Read(
 
 // List objects from schema based on metav1.ListOptions.
 func (r *Repository) List(
+	ns string,
 	gvk schema.GroupVersionKind,
 	options metav1.ListOptions,
 ) (*unstructured.UnstructuredList, error) {
-	s := r.schemaFactory(r.schemaName(gvk))
+	o, s, err := r.factory(ns, gvk)
+	if err != nil {
+		return nil, err
+	}
 
 	labelsSet, err := labels.ConvertSelectorToLabelsMap(options.LabelSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	rs, err := r.orm.List(s, labelsSet)
+	rs, err := o.List(s, labelsSet)
 	if err != nil {
 		return nil, err
 	}
@@ -285,16 +259,33 @@ func (r *Repository) List(
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
 // has tables created. It can return error on creating CRD tables.
 func (r *Repository) Bootstrap() error {
-	s := r.schemaFactory(r.schemaName(CRDGVK))
-	s.GenerateCRD()
-	return r.orm.CreateSchemaTables(s)
+	// TODO: bootstrap existing schemas, check created CRDs and instantiate orm and schemas;
+
+	o, s, err := r.factory(DefaultNamespace, CRDGVK)
+	if err != nil {
+		return err
+	}
+
+	// preparing database structure, before being able to store and retrieve data
+	if err = o.Bootstrap(); err != nil {
+		return err
+	}
+
+	// generating schema for CRD and creating tables
+	openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
+	if err = s.Generate(&openAPIV3Schema); err != nil {
+		return err
+	}
+	return o.CreateTables(s)
 }
 
 // NewRepository instantiate repository.
-func NewRepository(logger logr.Logger, pgORM *orm.ORM) *Repository {
+func NewRepository(logger logr.Logger, config *config.Config) *Repository {
 	return &Repository{
-		logger:  logger.WithName("repository"),
-		orm:     pgORM,
-		schemas: map[string]*orm.Schema{},
+		logger:          logger.WithName("repository"),
+		config:          config,
+		orms:            map[string]map[string]*orm.ORM{},
+		schemas:         map[string]*orm.Schema{},
+		gvkPerNamespace: map[string][]string{},
 	}
 }

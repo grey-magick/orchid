@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
+	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
 // Schema around a given CR (Custom Resource), as in the group of tables required to store CR's
@@ -150,24 +152,13 @@ func (s *Schema) OneToManyTables(tableName string) []string {
 	return tables
 }
 
-// GenerateCR trigger generation of metadata and CR tables, plus parsing of OpenAPIV3 Schema to
-// create tables and columns. Can return error on JSON-Schema parsing.
-func (s *Schema) GenerateCR(openAPIV3Schema *extv1.JSONSchemaProps) error {
-	// intercepting "metadata" attribute, making sure only on the first level
-	if _, found := openAPIV3Schema.Properties["metadata"]; found {
-		metadata := openAPIV3Schema.Properties["metadata"]
-		metadata.Properties = metaV1ObjectMetaOpenAPIV3Schema()
-		openAPIV3Schema.Properties["metadata"] = metadata
-	}
+// Generate trigger generation of schema for given OpenAPIV3Schema object, adding on object a new
+// attribute to hold object's metadata.
+func (s *Schema) Generate(openAPIV3Schema *extv1.JSONSchemaProps) error {
+	openAPIV3Schema.Properties["metadata"] = jsc.MetaV1ObjectMetaOpenAPIV3Schema()
 
 	parser := NewParser(s.logger, s)
 	return parser.Parse(s.Name, Relationship{}, openAPIV3Schema)
-}
-
-// GenerateCRD creates the tables to store the actual CRDs.
-func (s *Schema) GenerateCRD() {
-	crd := NewCRD(s)
-	crd.Add()
 }
 
 // NewSchema instantiate new Schema.

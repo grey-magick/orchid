@@ -16,7 +16,7 @@ func TestSQL(t *testing.T) {
 	openAPIV3Schema := mocks.OpenAPIV3SchemaMock()
 	schema := NewSchema(logger, "cr")
 
-	err := schema.GenerateCR(&openAPIV3Schema)
+	err := schema.Generate(&openAPIV3Schema)
 	assert.NoError(t, err)
 
 	expectedAmountOfTables := len(schema.Tables)

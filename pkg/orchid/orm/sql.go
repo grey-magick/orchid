@@ -5,6 +5,21 @@ import (
 	"strings"
 )
 
+// CreateDatabaseStatement returns create database statement with informed database.
+func CreateDatabaseStatement(database string) string {
+	return fmt.Sprintf("create database %s template 'template1'", database)
+}
+
+// SelectDatabaseStatement returns select statement to check if database exists.
+func SelectDatabaseStatement() string {
+	return "select 1 from pg_database where datname = $1"
+}
+
+// CreateSchemaStatement returns create schema statement, with informed search-path.
+func CreateSchemaStatement(searchPath string) string {
+	return fmt.Sprintf("create schema if not exists %s", searchPath)
+}
+
 // valuesPlaceholders creates dollar based notation for the amount specified.
 func valuesPlaceholders(amount int) []string {
 	placeholders := []string{}

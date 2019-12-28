@@ -24,7 +24,7 @@ func assertJsonSchemaVsORMSchema(
 	assert.True(t, len(table.ColumNames()) > 0)
 
 	for name, jsonSchema := range properties {
-		if jsonSchema.Type != jsc.Object {
+		if jsonSchema.Type != jsc.Object || jsonSchema.Properties == nil {
 			continue
 		}
 
@@ -38,8 +38,6 @@ func assertJsonSchemaVsORMSchema(
 		}
 
 		assert.True(t, len(objectTable.ColumNames()) >= 2)
-		assert.NotNil(t, jsonSchema.Properties)
-
 		assertJsonSchemaVsORMSchema(t, schema, objectTable, jsonSchema.Properties)
 	}
 }
@@ -51,8 +49,8 @@ func TestSchema_CR(t *testing.T) {
 	logger := klogr.New().WithName("test")
 	schema := NewSchema(logger, schemaName)
 
-	t.Run("GenerateCR", func(t *testing.T) {
-		err := schema.GenerateCR(&apiSchema)
+	t.Run("Generate", func(t *testing.T) {
+		err := schema.Generate(&apiSchema)
 
 		assert.NoError(t, err)
 		assert.True(t, len(schema.Tables) > 1)
@@ -72,26 +70,14 @@ func TestSchema_CR(t *testing.T) {
 	})
 }
 
-func TestSchema_CRD(t *testing.T) {
-	const expectedAmountOfTables = 1
-
-	logger := klogr.New().WithName("test")
-	schema := NewSchema(logger, "crd")
-
-	schema.GenerateCRD()
-	assert.Len(t, schema.Tables, expectedAmountOfTables)
-}
-
 func TestSchema_ObjectMeta(t *testing.T) {
-	schemaName := "metadata"
-	apiSchema := jsc.JSONSchemaProps(jsc.Object, "", nil, nil, map[string]extv1.JSONSchemaProps{
-		"metadata": jsc.JSONSchemaProps(jsc.Object, "", nil, nil, metaV1ObjectMetaOpenAPIV3Schema()),
-	})
-
 	logger := klogr.New().WithName("test")
-	schema := NewSchema(logger, schemaName)
-	err := schema.GenerateCR(&apiSchema)
 
+	schemaName := "metadata"
+	schema := NewSchema(logger, schemaName)
+
+	jsonSchema := jsc.MetaV1ObjectMetaOpenAPIV3Schema()
+	err := schema.Generate(&jsonSchema)
 	require.NoError(t, err)
 	assert.True(t, len(schema.Tables) > 1)
 
@@ -99,5 +85,18 @@ func TestSchema_ObjectMeta(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, table)
 
-	assertJsonSchemaVsORMSchema(t, schema, table, apiSchema.Properties)
+	assertJsonSchemaVsORMSchema(t, schema, table, jsonSchema.Properties)
+}
+
+// TestSchema_Orchid will generate the schema that Orchid will be using to store its own data.
+func TestSchema_Orchid(t *testing.T) {
+	logger := klogr.New().WithName("test")
+
+	schemaName := "orchid"
+	schema := NewSchema(logger, schemaName)
+
+	jsonSchema := jsc.OrchidOpenAPIV3Schema()
+	err := schema.Generate(&jsonSchema)
+	require.NoError(t, err)
+	assert.True(t, len(schema.Tables) > 1)
 }
