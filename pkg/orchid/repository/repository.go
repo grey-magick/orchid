@@ -19,7 +19,7 @@ import (
 // ResourceRepository is the repository interface
 type ResourceRepository interface {
 	Create(u *unstructured.Unstructured) error
-	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error)
+	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (*unstructured.Unstructured, error)
 	List(ns string, gvk schema.GroupVersionKind, options metav1.ListOptions) (*unstructured.UnstructuredList, error)
 }
 

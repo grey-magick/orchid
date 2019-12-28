@@ -20,7 +20,7 @@ import (
 type APIResourceHandler struct {
 	logger    logr.Logger                   // logger instance
 	repo      repository.ResourceRepository // resource repository
-	Validator validation.Validator
+	validator validation.Validator          // resource validation
 }
 
 var (
@@ -148,7 +148,7 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (runtim
 	u := &unstructured.Unstructured{Object: uObj}
 
 	// validate body against its schema
-	err = h.Validator.Validate(u)
+	err = h.validator.Validate(u)
 	if err != nil {
 		return nil, err
 	}
@@ -201,6 +201,6 @@ func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository
 	return &APIResourceHandler{
 		repo:      repository,
 		logger:    logger,
-		Validator: validation.NewRepositoryValidator(repository),
+		validator: validation.NewRepositoryValidator(repository),
 	}
 }

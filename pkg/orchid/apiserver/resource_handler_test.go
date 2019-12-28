@@ -21,7 +21,7 @@ type TestResourcePostHandlerRepository struct {
 	CRDs                 []unstructured.Unstructured
 	Created              runtime.Object
 	CreatedError         error
-	ReadObject           runtime.Object
+	ReadObject           *unstructured.Unstructured
 	ReadError            error
 	OpenAPIV3Schema      *extv1.JSONSchemaProps
 	OpenAPIV3SchemaError error
@@ -36,7 +36,7 @@ func (m *TestResourcePostHandlerRepository) Create(u *unstructured.Unstructured)
 	return m.ReadError
 }
 
-func (m *TestResourcePostHandlerRepository) Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error) {
+func (m *TestResourcePostHandlerRepository) Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (*unstructured.Unstructured, error) {
 	return m.ReadObject, m.ReadError
 }
 
@@ -69,9 +69,9 @@ func TestAPIResourceHandler_ResourcePostHandler(t *testing.T) {
 	assertPost := func(args args) func(*testing.T) {
 		return func(t *testing.T) {
 			h := &APIResourceHandler{
-				Logger:     args.logger,
-				Repository: args.repository,
-				Validator:  validation.NewRepositoryValidator(args.repository),
+				logger:    args.logger,
+				repo:      args.repository,
+				validator: validation.NewRepositoryValidator(args.repository),
 			}
 			got, err := h.ResourcePostHandler(args.vars, args.body)
 			if args.wantErr {
