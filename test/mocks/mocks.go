@@ -118,7 +118,7 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 			Operation:  metav1.ManagedFieldsOperationUpdate,
 		},
 	})
-	u.SetNamespace("namespace")
+	u.SetNamespace("orchid")
 	u.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion:         "owner/v1",
@@ -215,7 +215,37 @@ func UnstructuredReplicaSetMock() (*unstructured.Unstructured, error) {
 
 func UnstructuredCRDMock() (*unstructured.Unstructured, error) {
 	crd := CRDMock()
-	return toUnstructured(crd)
+	u, err := toUnstructured(crd)
+	if err != nil {
+		return nil, err
+	}
+
+	now := metav1.NewTime(time.Now())
+	u.SetManagedFields([]metav1.ManagedFieldsEntry{
+		{
+			Manager:    "manager1",
+			APIVersion: "manager1/v1",
+			Time:       &now,
+			Operation:  metav1.ManagedFieldsOperationApply,
+		},
+	})
+
+	u.SetAnnotations(map[string]string{})
+	u.SetLabels(map[string]string{})
+
+	truePtr := true
+	u.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion:         "owner/v1",
+			BlockOwnerDeletion: &truePtr,
+			Controller:         &truePtr,
+			Kind:               "Owner1",
+			Name:               "ownername1",
+			UID:                "owner1-uid",
+		},
+	})
+
+	return u, nil
 }
 
 func CRDMock() *extv1.CustomResourceDefinition {
@@ -226,8 +256,8 @@ func CRDMock() *extv1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "",
-			Name:      "customs.mock", // plural.group
+			Namespace: "orchid",
+			Name:      "MockedCRD",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
 			Group: "mock",

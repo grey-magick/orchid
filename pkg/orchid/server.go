@@ -10,7 +10,7 @@ import (
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/isutton/orchid/pkg/orchid/apiserver"
-	"github.com/isutton/orchid/pkg/orchid/orm"
+	"github.com/isutton/orchid/pkg/orchid/config"
 	"github.com/isutton/orchid/pkg/orchid/repository"
 )
 
@@ -27,18 +27,14 @@ type Server struct {
 
 // NewServer creates a new Server using options.
 func NewServer(logger logr.Logger, options Options) *Server {
-	pgOrm := orm.NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
+	// TODO: move artificial configuration away;
+	config := &config.Config{Username: "postgres", Password: "1", Options: "sslmode=disable"}
 
-	err := pgOrm.Connect()
-	if err != nil {
+	repo := repository.NewRepository(logger, config)
+	if err := repo.Bootstrap(); err != nil {
 		panic(err)
 	}
 
-	repo := repository.NewRepository(logger, pgOrm)
-	err = repo.Bootstrap()
-	if err != nil {
-		panic(err)
-	}
 	router := mux.NewRouter()
 	h := apiserver.NewAPIResourceHandler(logger, repo)
 	h.Register(router)
