@@ -34,7 +34,7 @@ func TestExtract_extractCRGVKFromCRD(t *testing.T) {
 	cr, err := mocks.UnstructuredCRDMock()
 	require.NoError(t, err)
 
-	gvk, err := extractCRGVKFromCRD(cr.Object)
+	gvk, err := ExtractCRGVKFromCRD(cr.Object)
 	require.NoError(t, err)
 	assert.NotNil(t, gvk)
 

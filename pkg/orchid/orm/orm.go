@@ -110,7 +110,7 @@ func (o *ORM) connect(dbname, searchPath string) error {
 	return err
 }
 
-// interpolate table columne's argument with cached primary-keys, in order to complete the desired
+// interpolate table column's argument with cached primary-keys, in order to complete the desired
 // amount of columns with foreign-keys.
 func (o *ORM) interpolate(table *Table, arguments List, cachedIDs map[string]int64) (List, error) {
 	argumentWithFK := make(List, 0)
@@ -217,7 +217,7 @@ func (o *ORM) Create(schema *Schema, matrix MappedMatrix) error {
 			continue
 		}
 		logger = logger.WithValues(
-			"statemnet", statement, "rows", len(arguments), "table", table.Name)
+			"statement", statement, "rows", len(arguments), "table", table.Name)
 
 		// for each row found for that
 		for _, argument := range arguments {
@@ -264,17 +264,19 @@ func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*Result
 // List all items matching labels informed. It can return errors from querying the database,
 // and building a result-set with rows.
 func (o *ORM) List(schema *Schema, labelsSet map[string]string) (*ResultSet, error) {
-	labelsTable, err := schema.GetTable(fmt.Sprintf("%s_metadata_labels", schema.Name))
-	if err != nil {
-		return nil, err
-	}
 	where := []string{}
 	arguments := []interface{}{}
-	for label, value := range labelsSet {
-		where = append(where, fmt.Sprintf("%s.key", labelsTable.Hint))
-		where = append(where, fmt.Sprintf("%s.value", labelsTable.Hint))
-		arguments = append(arguments, label)
-		arguments = append(arguments, value)
+	if len(labelsSet) > 0 {
+		labelsTable, err := schema.GetTable(fmt.Sprintf("%s_metadata_labels", schema.Name))
+		if err != nil {
+			return nil, err
+		}
+		for label, value := range labelsSet {
+			where = append(where, fmt.Sprintf("%s.key", labelsTable.Hint))
+			where = append(where, fmt.Sprintf("%s.value", labelsTable.Hint))
+			arguments = append(arguments, label)
+			arguments = append(arguments, value)
+		}
 	}
 	return o.dbSelect(schema, where, arguments)
 }

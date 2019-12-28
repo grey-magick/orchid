@@ -1,6 +1,8 @@
 package orm
 
 import (
+	"strings"
+
 	jsc "github.com/isutton/orchid/pkg/orchid/jsonschema"
 )
 
@@ -13,7 +15,8 @@ const CRDRawColumn = "data"
 
 // crdTable create a special table to store CRDs.
 func (c *CRD) crdTable() {
-	table := c.schema.TableFactory(c.schema.TableName("crd"), false)
+	tableName := strings.ToLower(c.schema.Name)
+	table := c.schema.TableFactory(tableName, false)
 	table.AddSerialPK()
 
 	table.AddColumn(
@@ -22,6 +25,24 @@ func (c *CRD) crdTable() {
 		&Column{Name: "kind", Type: PgTypeText, JSType: jsc.String, NotNull: true})
 	table.AddColumn(
 		&Column{Name: CRDRawColumn, Type: PgTypeJSONB, JSType: jsc.String, NotNull: true})
+
+	metadataTableName := c.schema.TableName("metadata")
+	metadataTable := c.schema.TableFactory(metadataTableName, true)
+	metadataTable.Path = []string{"metadata"}
+	metadataTable.AddSerialPK()
+	metadataTable.AddBigIntFK(tableName, tableName, PKColumnName, false)
+	metadataTable.AddColumn(&Column{
+		Name:    "name",
+		Type:    PgTypeText,
+		JSType:  jsc.String,
+		NotNull: true,
+	})
+	metadataTable.AddColumn(&Column{
+		Name:    "namespace",
+		Type:    PgTypeText,
+		JSType:  jsc.String,
+		NotNull: false,
+	})
 }
 
 // Add tables belonging to CRD schema.

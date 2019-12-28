@@ -138,7 +138,7 @@ func (r *Repository) decompose(
 // initializeSchema extracts the GVK and OpenAPI Schema from CRD object, and initialize orm.Schema.
 // It can return errors on extracting data.
 func (r *Repository) initializeSchema(obj map[string]interface{}) error {
-	gvk, err := extractCRGVKFromCRD(obj)
+	gvk, err := ExtractCRGVKFromCRD(obj)
 	if err != nil {
 		return err
 	}
