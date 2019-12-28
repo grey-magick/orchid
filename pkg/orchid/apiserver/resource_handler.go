@@ -6,17 +6,14 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/repository"
 	orchid "github.com/isutton/orchid/pkg/orchid/runtime"
+	"github.com/isutton/orchid/pkg/orchid/validation"
 )
 
 var (
@@ -51,19 +48,11 @@ var (
 	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
-// ObjectRepository is the repository interface
-type ObjectRepository interface {
-	Create(u *unstructured.Unstructured) error
-	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (k8sruntime.Object, error)
-	// OpenAPIV3SchemaForGVK discovers the OpenAPIV3Schema for the given gvk.
-	// TODO: move this to another component
-	OpenAPIV3SchemaForGVK(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error)
-}
-
 // APIResourceHandler is responsible for responding API resource requests.
 type APIResourceHandler struct {
 	Logger     logr.Logger
-	Repository ObjectRepository
+	Repository repository.ResourceRepository
+	Validator  validation.Validator
 }
 
 // ObjectLister returns a list of objects.
@@ -149,12 +138,6 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8srun
 		return nil, err
 	}
 
-	// validate body against its schema
-	err = h.Validate(obj)
-	if err != nil {
-		return nil, err
-	}
-
 	// deserialize the body to a map[string]interface{} as well, since we'll be using it to feed the
 	// Repository to create the resource
 	uObj := &map[string]interface{}{}
@@ -163,6 +146,13 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8srun
 		return nil, err
 	}
 	u := &unstructured.Unstructured{Object: *uObj}
+
+	// validate body against its schema
+	err = h.Validator.Validate(u)
+	if err != nil {
+		return nil, err
+	}
+
 	err = h.Repository.Create(u)
 	if err != nil {
 		return nil, err
@@ -206,44 +196,11 @@ func (h *APIResourceHandler) CRDAPIGroups() []metav1.APIGroup {
 	return nil
 }
 
-var InvalidObjectErr = errors.New("invalid object")
-
-// Validate returns an error when obj is not valid against it's kind's JsonSchema.
-// TODO: move to another component
-func (h *APIResourceHandler) Validate(obj k8sruntime.Object) error {
-	if obj == nil {
-		return errors.New("input is required")
-	}
-	openAPIV3Schema, err := h.Repository.OpenAPIV3SchemaForGVK(obj.GetObjectKind().GroupVersionKind())
-	if err != nil {
-		return err
-	}
-	in := &extv1.CustomResourceValidation{
-		OpenAPIV3Schema: openAPIV3Schema,
-	}
-	out := &apiextensions.CustomResourceValidation{}
-	err = extv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(in, out, nil)
-	if err != nil {
-		return err
-	}
-	validator, _, err := validation.NewSchemaValidator(out)
-	if err != nil {
-		return err
-	}
-	// perform the actual validation returning the first error if any
-	r := validator.Validate(obj)
-	if len(r.Errors) > 0 {
-		return InvalidObjectErr
-	}
-
-	return nil
-}
-
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
 func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
-		// FIXME: create a new component to implement desired behavior;
-		// Repository: repository,
-		Logger: logger,
+		Repository: repository,
+		Logger:     logger,
+		Validator:  validation.NewRepositoryValidator(repository),
 	}
 }

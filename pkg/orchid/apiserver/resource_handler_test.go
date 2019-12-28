@@ -1,12 +1,20 @@
 package apiserver
 
 import (
+	"testing"
+
+	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/require"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/klogr"
+
+	"github.com/isutton/orchid/pkg/orchid/validation"
+	"github.com/isutton/orchid/test/util"
 )
 
 type TestResourcePostHandlerRepository struct {
@@ -19,7 +27,7 @@ type TestResourcePostHandlerRepository struct {
 	OpenAPIV3SchemaError error
 }
 
-func (m *TestResourcePostHandlerRepository) List(gvk schema.GroupVersionKind, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+func (m *TestResourcePostHandlerRepository) List(ns string, gvk schema.GroupVersionKind, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	return &unstructured.UnstructuredList{Items: m.CRDs}, nil
 }
 
@@ -32,8 +40,6 @@ func (m *TestResourcePostHandlerRepository) Read(gvk schema.GroupVersionKind, na
 	return m.ReadObject, m.ReadError
 }
 
-// FIXME: review those changes in the light of recent Repository changes;
-/*
 var (
 	CustomResourceDefintionAsset = "../../../test/crds/customresourcedefinition.yaml"
 	InvalidCRAsset               = "../../../test/crds/cr-invalid.yaml"
@@ -236,4 +242,3 @@ func TestAPIResourceHandler_Validate(t *testing.T) {
 		},
 	))
 }
-*/

@@ -3,7 +3,15 @@ package validation
 import (
 	"errors"
 
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/isutton/orchid/pkg/orchid/repository"
 )
 
 var GVKNotFoundErr = errors.New("gvk not found")
@@ -16,16 +24,14 @@ type Validator interface {
 	Validate(obj *unstructured.Unstructured) error
 }
 
-// FIXME: review those changes in the light of recent Repository changes;
-/*
 // repositoryValidator validates unstructured objects using a repository.
 type repositoryValidator struct {
-	Repository repository.ObjectRepository
+	Repository repository.ResourceRepository
 }
 
 // discoverOpenAPIV3Schema returns the JSON Schema properties associated with the given gvk.
 func (v *repositoryValidator) discoverOpenAPIV3Schema(gvk schema.GroupVersionKind) (*extv1.JSONSchemaProps, error) {
-	crds, err := v.Repository.List(repository.CRDGVK, metav1.ListOptions{})
+	crds, err := v.Repository.List(repository.DefaultNamespace, repository.CRDGVK, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +127,6 @@ func ExtractOpenAPIV3Schema(obj map[string]interface{}) (*extv1.JSONSchemaProps,
 
 // NewRepositoryValidator creates a new validator that knows how to obtain JSON Schema properties for
 // validation through the given repository.
-func NewRepositoryValidator(repository repository.ObjectRepository) Validator {
+func NewRepositoryValidator(repository repository.ResourceRepository) Validator {
 	return &repositoryValidator{Repository: repository}
 }
-
-*/

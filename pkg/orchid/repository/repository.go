@@ -17,6 +17,13 @@ import (
 	"github.com/isutton/orchid/pkg/orchid/orm"
 )
 
+// ResourceRepository is the repository interface
+type ResourceRepository interface {
+	Create(u *unstructured.Unstructured) error
+	Read(gvk schema.GroupVersionKind, namespacedName types.NamespacedName) (runtime.Object, error)
+	List(ns string, gvk schema.GroupVersionKind, options metav1.ListOptions) (*unstructured.UnstructuredList, error)
+}
+
 // Repository on which data is handled regarding ORM Schemas and data extrated from Unstructured,
 // being ready to store CRD data in a sightly different way than regular CRs.
 type Repository struct {
@@ -24,7 +31,7 @@ type Repository struct {
 	config          *config.Config                 // configuration instance
 	schemas         map[string]*orm.Schema         // schema name and instance
 	orms            map[string]map[string]*orm.ORM // namespace and instances by name
-	gvkPerNamespace map[string][]string            //cached list of where GVK has been applied
+	gvkPerNamespace map[string][]string            // cached list of where GVK has been applied
 }
 
 // DefaultNamespace namespace name or orchid's metadata
