@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -142,7 +141,7 @@ func (r *Repository) initializeSchema(obj map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	openAPIV3Schema, err := extractCRDOpenAPIV3Schema(obj)
+	openAPIV3Schema, err := ExtractCRDOpenAPIV3Schema(obj)
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,7 @@ func (r *Repository) Create(u *unstructured.Unstructured) error {
 func (r *Repository) Read(
 	gvk schema.GroupVersionKind,
 	namespacedName types.NamespacedName,
-) (runtime.Object, error) {
+) (*unstructured.Unstructured, error) {
 	o, s, err := r.factory(namespacedName.Namespace, gvk)
 	if err != nil {
 		return nil, err
