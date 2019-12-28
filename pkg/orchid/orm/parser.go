@@ -16,6 +16,9 @@ type Parser struct {
 	schema *Schema     // schema instance
 }
 
+// XEmbeddedResource column name for embedding resources as JSONB
+const XEmbeddedResource = "data"
+
 // expandAdditionalProperties will create a set of properties to represent a key-value object.
 func (j *Parser) expandAdditionalProperties(
 	additionalProperties *extv1.JSONSchemaPropsOrBool,
@@ -160,15 +163,13 @@ func (j *Parser) Parse(
 	relationship Relationship,
 	jsSchema *extv1.JSONSchemaProps,
 ) error {
-	j.logger.WithValues("table", tableName, "relationship", relationship).
-		Info("Adding new table on schema.")
+	logger := j.logger.WithValues("table", tableName, "relationship", relationship)
+	logger.Info("Adding new table on schema.")
 
-	properties := jsSchema.Properties
-	required := jsSchema.Required
-
+	// instantiating a table, adding default serial primary key
 	table := j.schema.TableFactory(tableName, relationship.OneToMany)
-	// default serial primary key
 	table.AddSerialPK()
+
 	// changing table attributes according to the relationship
 	table.Path = relationship.Path
 	table.OneToMany = relationship.OneToMany
@@ -178,10 +179,17 @@ func (j *Parser) Parse(
 		table.AddConstraint(constraint)
 	}
 
+	// checking for x-kubernetes-embedded-resource flag, to introduce a JSONB column to store
+	// original payload over it
+	if jsSchema.XEmbeddedResource {
+		logger.Info("Adding 'data' column for x-kubernetes-embedded-resource")
+		table.AddColumn(&Column{Name: XEmbeddedResource, Type: PgTypeJSONB, NotNull: true})
+	}
+
 	var err error
-	for name, jsSchema := range properties {
+	for name, jsSchema := range jsSchema.Properties {
 		// checking if property name required, therefore not null column
-		notNull := StringSliceContains(required, name)
+		notNull := StringSliceContains(jsSchema.Required, name)
 
 		switch jsSchema.Type {
 		case jsc.Object:

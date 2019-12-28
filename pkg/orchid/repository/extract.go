@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -120,6 +121,7 @@ func extractPath(
 	return data, err
 }
 
+// extractKV loops the object and build a sequence of key-value entries.
 func extractKV(obj map[string]interface{}) []orm.List {
 	data := make([]orm.List, 0, len(obj))
 	for k, v := range obj {
@@ -128,6 +130,8 @@ func extractKV(obj map[string]interface{}) []orm.List {
 	return data
 }
 
+// extractColumns loops table's columns in order to extract data from informed object (obj). It can
+// return error in case of having errors to extract data.
 func extractColumns(
 	obj map[string]interface{},
 	fieldPath []string,
@@ -139,13 +143,25 @@ func extractColumns(
 			continue
 		}
 		columnFieldPath := append(fieldPath, column.Name)
-		data, err := extractPath(obj, column.JSType, columnFieldPath)
-		if err != nil {
-			if column.NotNull {
+
+		var data interface{}
+		// extracting columns' data either as JSON or regular field-path approach
+		if column.Type == orm.PgTypeJSONB {
+			bytes, err := json.Marshal(obj)
+			if err != nil {
 				return nil, err
 			}
-			if data, err = column.Null(); err != nil {
-				return nil, err
+			data = string(bytes)
+		} else {
+			var err error
+			if data, err = extractPath(obj, column.JSType, columnFieldPath); err != nil {
+				if column.NotNull {
+					return nil, fmt.Errorf(
+						"error extracting data from column meant to be not-null: '%#v'", err)
+				}
+				if data, err = column.Null(); err != nil {
+					return nil, err
+				}
 			}
 		}
 		dataColumns = append(dataColumns, data)
