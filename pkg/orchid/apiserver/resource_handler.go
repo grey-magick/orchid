@@ -242,7 +242,8 @@ func (h *APIResourceHandler) Validate(obj k8sruntime.Object) error {
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
 func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
-		Repository: repository,
-		Logger:     logger,
+		// FIXME: create a new component to implement desired behavior;
+		// Repository: repository,
+		Logger: logger,
 	}
 }
