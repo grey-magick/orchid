@@ -8,13 +8,20 @@ import (
 	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/isutton/orchid/pkg/orchid/repository"
 	orchid "github.com/isutton/orchid/pkg/orchid/runtime"
 	"github.com/isutton/orchid/pkg/orchid/validation"
 )
+
+// APIResourceHandler is responsible for responding API resource requests.
+type APIResourceHandler struct {
+	logger    logr.Logger                   // logger instance
+	repo      repository.ResourceRepository // resource repository
+	Validator validation.Validator
+}
 
 var (
 	exampleAPIResource = metav1.APIResource{
@@ -48,15 +55,8 @@ var (
 	crdGroupVersion = crdGroup + "/" + crdVersion
 )
 
-// APIResourceHandler is responsible for responding API resource requests.
-type APIResourceHandler struct {
-	Logger     logr.Logger
-	Repository repository.ResourceRepository
-	Validator  validation.Validator
-}
-
 // ObjectLister returns a list of objects.
-func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) (k8sruntime.Object, error) {
+func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) (runtime.Object, error) {
 	apiVersion, err := vars.GetAPIVersion()
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (h *APIResourceHandler) ObjectLister(vars Vars, body []byte) (k8sruntime.Ob
 }
 
 // APIResourceLister lists API resources.
-func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) (k8sruntime.Object, error) {
+func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) (runtime.Object, error) {
 	return &metav1.APIResourceList{
 		// TODO: add GroupVersion argument
 		GroupVersion: examplesGroupVersion,
@@ -83,7 +83,7 @@ func (h *APIResourceHandler) APIResourceLister(vars Vars, body []byte) (k8srunti
 }
 
 // APIGroupLister lists API groups.
-func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) (k8sruntime.Object, error) {
+func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) (runtime.Object, error) {
 	crdAPIGroups := h.CRDAPIGroups()
 	groups := []metav1.APIGroup{
 		{
@@ -118,14 +118,14 @@ func (h *APIResourceHandler) APIGroupLister(vars Vars, body []byte) (k8sruntime.
 	}, nil
 }
 
-func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+func (h *APIResourceHandler) OpenAPIHandler(vars Vars, body []byte) (runtime.Object, error) {
 	return nil, nil
 }
 
 var BodyEmptyErr = errors.New("body is empty")
 
 // ResourcePostHandler handles the create resource action.
-func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8sruntime.Object, error) {
+func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (runtime.Object, error) {
 	// do not proceed if body is empty
 	if len(body) == 0 {
 		return nil, BodyEmptyErr
@@ -140,12 +140,12 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8srun
 
 	// deserialize the body to a map[string]interface{} as well, since we'll be using it to feed the
 	// Repository to create the resource
-	uObj := &map[string]interface{}{}
-	err = yaml.Unmarshal(body, uObj)
+	uObj := map[string]interface{}{}
+	err = yaml.Unmarshal(body, &uObj)
 	if err != nil {
 		return nil, err
 	}
-	u := &unstructured.Unstructured{Object: *uObj}
+	u := &unstructured.Unstructured{Object: uObj}
 
 	// validate body against its schema
 	err = h.Validator.Validate(u)
@@ -153,7 +153,7 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8srun
 		return nil, err
 	}
 
-	err = h.Repository.Create(u)
+	err = h.repo.Create(u)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (h *APIResourceHandler) ResourcePostHandler(vars Vars, body []byte) (k8srun
 		Namespace: u.GetNamespace(),
 		Name:      u.GetName(),
 	}
-	createdObj, err := h.Repository.Read(u.GroupVersionKind(), name)
+	createdObj, err := h.repo.Read(u.GroupVersionKind(), name)
 	if err != nil {
 		return nil, err
 	}
@@ -199,8 +199,8 @@ func (h *APIResourceHandler) CRDAPIGroups() []metav1.APIGroup {
 // NewAPIResourceHandler create a new handler capable of handling APIResources.
 func NewAPIResourceHandler(logger logr.Logger, repository *repository.Repository) *APIResourceHandler {
 	return &APIResourceHandler{
-		Repository: repository,
-		Logger:     logger,
-		Validator:  validation.NewRepositoryValidator(repository),
+		repo:      repository,
+		logger:    logger,
+		Validator: validation.NewRepositoryValidator(repository),
 	}
 }

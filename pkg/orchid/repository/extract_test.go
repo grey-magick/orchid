@@ -25,7 +25,7 @@ func TestExtract_extractCRDOpenAPIV3Schema(t *testing.T) {
 	crd, err := mocks.UnstructuredCRDMock()
 	require.NoError(t, err)
 
-	openAPIV3Schema, err := extractCRDOpenAPIV3Schema(crd.Object)
+	openAPIV3Schema, err := ExtractCRDOpenAPIV3Schema(crd.Object)
 	require.NoError(t, err)
 	assert.NotNil(t, openAPIV3Schema)
 }

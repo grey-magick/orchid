@@ -169,9 +169,9 @@ func extractColumns(
 	return dataColumns, nil
 }
 
-// extractCRDOpenAPIV3Schema extract known field path to store OpenAPI schema in a CRD unstructured
+// ExtractCRDOpenAPIV3Schema extract known field path to store OpenAPI schema in a CRD unstructured
 // Object, and returns as an actual JSONSchemaProps.
-func extractCRDOpenAPIV3Schema(obj map[string]interface{}) (*extv1.JSONSchemaProps, error) {
+func ExtractCRDOpenAPIV3Schema(obj map[string]interface{}) (*extv1.JSONSchemaProps, error) {
 	versions, err := nestedSlice(obj, []string{"spec", "versions"})
 	if err != nil {
 		return nil, err
