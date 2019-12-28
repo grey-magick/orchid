@@ -7,14 +7,21 @@ import (
 	"github.com/go-logr/logr"
 	_ "github.com/lib/pq"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/isutton/orchid/pkg/orchid/config"
 )
 
 // ORM represents the data abastraction layer.
 type ORM struct {
-	logger  logr.Logger // logger instance
-	connStr string      // database adapter connection string
-	DB      *sql.DB     // database adapter instance
+	logger     logr.Logger    // logger instance
+	database   string         // database name
+	searchPath string         // database schema name
+	config     *config.Config // configuration instance
+	DB         *sql.DB        // database adapter instance
 }
+
+// driverName database driver
+const driverName = "postgres"
 
 type List []interface{}
 type MappedList map[string]List
@@ -24,8 +31,58 @@ type Entry map[string]interface{}
 type EntryMap map[string]Entry
 type MappedEntries map[string][]Entry
 
-// CreateSchemaTables create tables for a schema.
-func (o *ORM) CreateSchemaTables(schema *Schema) error {
+// createDatabase create an PostgreSQL database.
+func (o *ORM) createDatabase() error {
+	var exists int = 0
+	err := o.DB.QueryRow(SelectDatabaseStatement(), o.database).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if exists == 1 {
+		o.logger.Info("Database already exists!")
+		return nil
+	}
+
+	o.logger.Info("Creating database...")
+	_, err = o.DB.Exec(CreateDatabaseStatement(o.database))
+	return err
+}
+
+// createSchema create an PostgreSQL schema.
+func (o *ORM) createSchema() error {
+	_, err := o.DB.Exec(CreateSchemaStatement(o.searchPath))
+	return err
+}
+
+// Bootstrap initial connection to make sure database is present, and a second connection to then
+// create schema, making sure subsequent queries will use the schema as search-path.
+func (o *ORM) Bootstrap() error {
+	// connecting with a privileged user first to create database and schema
+	if err := o.connect("postgres", "public"); err != nil {
+		return err
+	}
+
+	if err := o.createDatabase(); err != nil {
+		return err
+	}
+
+	// closing current connection in order to open a new one on specific database
+	if err := o.DB.Close(); err != nil {
+		return err
+	}
+
+	if err := o.connect(o.database, o.searchPath); err != nil {
+		return err
+	}
+	if err := o.createSchema(); err != nil {
+		return err
+	}
+	_, err := o.DB.Exec(fmt.Sprintf("set search_path='%s'", o.searchPath))
+	return err
+}
+
+// CreateTables create tables for a schema.
+func (o *ORM) CreateTables(schema *Schema) error {
 	for _, statement := range CreateTablesStatement(schema) {
 		o.logger.WithValues("statement", statement).Info("Creating table.")
 		_, err := o.DB.Query(statement)
@@ -36,10 +93,20 @@ func (o *ORM) CreateSchemaTables(schema *Schema) error {
 	return nil
 }
 
-// Connect with the database, instantiate the connection.
-func (o *ORM) Connect() error {
+// connect with the database, instantiate the connection.
+func (o *ORM) connect(dbname, searchPath string) error {
+	connStr := fmt.Sprintf(
+		"user=%s password=%s dbname=%s search_path=%s",
+		o.config.Username,
+		o.config.Password,
+		dbname,
+		searchPath,
+	)
+	if o.config.Options != "" {
+		connStr = fmt.Sprintf("%s %s", connStr, o.config.Options)
+	}
 	var err error
-	o.DB, err = sql.Open("postgres", o.connStr)
+	o.DB, err = sql.Open(driverName, connStr)
 	return err
 }
 
@@ -213,6 +280,14 @@ func (o *ORM) List(schema *Schema, labelsSet map[string]string) (*ResultSet, err
 }
 
 // NewORM instantiate an ORM.
-func NewORM(logger logr.Logger, connStr string) *ORM {
-	return &ORM{logger: logger.WithName("orm"), connStr: connStr}
+func NewORM(logger logr.Logger, database string, searchPath string, config *config.Config) *ORM {
+	return &ORM{
+		logger: logger.WithName("orm").WithValues(
+			"database", database,
+			"searchPath", searchPath,
+		),
+		database:   database,
+		searchPath: searchPath,
+		config:     config,
+	}
 }

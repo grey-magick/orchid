@@ -6,15 +6,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/klog/klogr"
 
+	"github.com/isutton/orchid/pkg/orchid/config"
 	"github.com/isutton/orchid/test/mocks"
 )
 
 func TestORM_New(t *testing.T) {
 	logger := klogr.New().WithName("test")
-	orm := NewORM(logger, "user=postgres password=1 dbname=postgres sslmode=disable")
+	config := &config.Config{Username: "postgres", Password: "1", Options: "sslmode=disable"}
+	pgORM := NewORM(logger, "postgres", "public", config)
 
-	t.Run("Connect", func(t *testing.T) {
-		err := orm.Connect()
+	t.Run("Bootstrap", func(t *testing.T) {
+		err := pgORM.Bootstrap()
 		assert.NoError(t, err)
 	})
 
@@ -22,10 +24,10 @@ func TestORM_New(t *testing.T) {
 	schema := NewSchema(logger, "cr")
 
 	t.Run("CreateSchemaTables", func(t *testing.T) {
-		err := schema.GenerateCR(&openAPIV3Schema)
+		err := schema.Generate(&openAPIV3Schema)
 		assert.NoError(t, err)
 
-		err = orm.CreateSchemaTables(schema)
+		err = pgORM.CreateTables(schema)
 		assert.NoError(t, err)
 	})
 
