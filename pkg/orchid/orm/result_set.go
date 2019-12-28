@@ -17,7 +17,7 @@ func (r *ResultSet) getTableData(tableName string) (*Table, []Entry, error) {
 	}
 	data, found := r.Data[tableName]
 	if !found {
-		return nil, nil, fmt.Errorf("no data found for for table named '%s'", tableName)
+		return nil, nil, fmt.Errorf("no data found for table named '%s'", tableName)
 	}
 	return table, data, nil
 }
