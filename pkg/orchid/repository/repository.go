@@ -86,7 +86,7 @@ func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, 
 	// instantiated and thus won't be subject to connect or create-tables again
 	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
 	if o.DB == nil {
-		logger.Info("Bootstraping database connection...")
+		logger.Info("Bootstrapping database connection...")
 		if err := o.Bootstrap(); err != nil {
 			return nil, nil, err
 		}
