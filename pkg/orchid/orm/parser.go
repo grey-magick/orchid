@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -184,6 +185,15 @@ func (j *Parser) Parse(
 	if jsSchema.XEmbeddedResource {
 		logger.Info("Adding 'data' column for x-kubernetes-embedded-resource")
 		table.AddColumn(&Column{Name: XEmbeddedResource, Type: PgTypeJSONB, NotNull: true})
+	}
+
+	// checking for x-list-map-keys to introduce unique columns in table, therefore the list of
+	// keys informed on this flag are considered unique in combination
+	if len(jsSchema.XListMapKeys) > 0 {
+		uniqueColumns := strings.Join(jsSchema.XListMapKeys, ",")
+		logger.WithValues("uniqueColumns", uniqueColumns).
+			Info("Adding unique constraint for column(s)")
+		table.AddConstraint(&Constraint{Type: PgConstraintUnique, ColumnName: uniqueColumns})
 	}
 
 	var err error
