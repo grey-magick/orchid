@@ -89,13 +89,13 @@ func TestSchema_ObjectMeta(t *testing.T) {
 }
 
 // TestSchema_Orchid will generate the schema that Orchid will be using to store its own data.
-func TestSchema_Orchid(t *testing.T) {
+func TestSchema_CRD(t *testing.T) {
 	logger := klogr.New().WithName("test")
 
 	schemaName := "orchid"
 	schema := NewSchema(logger, schemaName)
 
-	jsonSchema := jsc.OrchidOpenAPIV3Schema()
+	jsonSchema := jsc.ExtV1CRDOpenAPIV3Schema()
 	err := schema.Generate(&jsonSchema)
 	require.NoError(t, err)
 	assert.True(t, len(schema.Tables) > 1)

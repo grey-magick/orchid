@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,6 +44,13 @@ var CRDGVK = schema.GroupVersionKind{
 	Kind:    "CustomResourceDefinition",
 }
 
+// NSGVK core-v1 Namespace GVK
+var NSGVK = schema.GroupVersionKind{
+	Group:   "",
+	Version: "v1",
+	Kind:    "Namespace",
+}
+
 // ormFactory creates a single ORM bootstrapped instance per namespace GVK.Group combination.
 func (r *Repository) ormFactory(ns string, group string) *orm.ORM {
 	if _, exists := r.orms[ns]; !exists {
@@ -73,8 +81,15 @@ func (r *Repository) schemaNameforGVK(gvk schema.GroupVersionKind) string {
 // factory instantiate the schema and ORM instances, making sure a single instance is in use for
 // the combination of namespace and GVK.
 func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, *orm.Schema, error) {
-	if gvk.Group == "" || gvk.Version == "" || gvk.Kind == "" {
+	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
+
+	// validating informed GVK
+	if gvk.Version == "" || gvk.Kind == "" {
 		return nil, nil, fmt.Errorf("incomplete GVK '%#v'", gvk)
+	}
+	if gvk.Group == "" {
+		logger.Info("Assuming 'core' since GVK's group is empty")
+		gvk.Group = "core"
 	}
 
 	group := strings.ReplaceAll(gvk.Group, ".", "_")
@@ -84,7 +99,6 @@ func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, 
 	// checking when database connection is not yet instantiated to check if schemas has tables
 	// defined, and therefore create them, after this steps the database connection will be
 	// instantiated and thus won't be subject to connect or create-tables again
-	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
 	if o.DB == nil {
 		logger.Info("Bootstraping database connection...")
 		if err := o.Bootstrap(); err != nil {
@@ -218,7 +232,7 @@ func (r *Repository) Read(
 	if err != nil {
 		return nil, err
 	}
-	if len(objects) > 1 {
+	if len(objects) != 1 {
 		r.logger.WithValues("objects", len(objects)).Info("WARNING: unexpected number of objects!")
 	}
 
@@ -262,27 +276,32 @@ func (r *Repository) List(
 	return list, nil
 }
 
+// bootstrapGVK instantiate orm.Schema and later calling out for factory, in order to have schemas
+// pre-instantiated, and later on tables created on orchid's namespace (default namespace). It can
+// return errors on generating schema, and on calling out factory.
+func (r *Repository) bootstrapGVK(
+	gvk schema.GroupVersionKind,
+	openAPIV3Schema *extv1.JSONSchemaProps,
+) error {
+	s := r.schemaFactory(r.schemaNameforGVK(gvk))
+	if err := s.Generate(openAPIV3Schema); err != nil {
+		return err
+	}
+	_, _, err := r.factory(DefaultNamespace, gvk)
+	return err
+}
+
 // Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
 // has tables created. It can return error on creating CRD tables.
 func (r *Repository) Bootstrap() error {
-	// TODO: bootstrap existing schemas, check created CRDs and instantiate orm and schemas;
-
-	o, s, err := r.factory(DefaultNamespace, CRDGVK)
-	if err != nil {
+	// instantiating CRD storage
+	crdAPISchema := jsc.ExtV1CRDOpenAPIV3Schema()
+	if err := r.bootstrapGVK(CRDGVK, &crdAPISchema); err != nil {
 		return err
 	}
-
-	// preparing database structure, before being able to store and retrieve data
-	if err = o.Bootstrap(); err != nil {
-		return err
-	}
-
-	// generating schema for CRD and creating tables
-	openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
-	if err = s.Generate(&openAPIV3Schema); err != nil {
-		return err
-	}
-	return o.CreateTables(s)
+	// instantiating core/v1 Namespace storage
+	nsAPISchema := jsc.CoreV1NamespaceOpenAPIV3Schema()
+	return r.bootstrapGVK(NSGVK, &nsAPISchema)
 }
 
 // NewRepository instantiate repository.

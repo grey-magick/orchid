@@ -33,7 +33,7 @@ func TestRepository_decompose(t *testing.T) {
 	schemaName := "orchid"
 	s := orm.NewSchema(logger, schemaName)
 
-	openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
+	openAPIV3Schema := jsc.ExtV1CRDOpenAPIV3Schema()
 	err := s.Generate(&openAPIV3Schema)
 	require.NoError(t, err)
 
