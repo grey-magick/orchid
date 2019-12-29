@@ -11,9 +11,10 @@ func ExtV1CRDOpenAPIV3Schema() extv1.JSONSchemaProps {
 		"kind":       StringProp,
 	}
 	return extv1.JSONSchemaProps{
-		Type:              Object,
-		Properties:        properties,
-		Required:          []string{"apiVersion", "kind"},
+		Type:       Object,
+		Properties: properties,
+		Required:   []string{"apiVersion", "kind"},
+		// trigger saving the raw payload as a special column
 		XEmbeddedResource: true,
 	}
 }
