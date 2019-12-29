@@ -24,7 +24,7 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("x-kubernetes-embedded-resource", func(t *testing.T) {
-		openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
+		openAPIV3Schema := jsc.ExtV1CRDOpenAPIV3Schema()
 		err := parser.Parse(schema.Name, Relationship{}, &openAPIV3Schema)
 		assert.NoError(t, err)
 
