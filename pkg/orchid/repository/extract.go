@@ -22,7 +22,7 @@ func nestedMap(obj map[string]interface{}, fieldPath []string) (map[string]inter
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+		return nil, fmt.Errorf("nestedMap: unable to find data at '%+v'", fieldPath)
 	}
 	return data, nil
 }
@@ -34,7 +34,7 @@ func nestedSlice(obj map[string]interface{}, fieldPath []string) ([]interface{},
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+		return nil, fmt.Errorf("nestedSlice: unable to find data at '%+v'", fieldPath)
 	}
 	return slice, nil
 }
@@ -46,7 +46,7 @@ func nestedBool(obj map[string]interface{}, fieldPath []string) (bool, error) {
 		return false, err
 	}
 	if !found {
-		return false, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+		return false, fmt.Errorf("nestedBool: unable to find data at '%+v'", fieldPath)
 	}
 	return boolean, nil
 }
@@ -58,7 +58,7 @@ func nestedString(obj map[string]interface{}, fieldPath []string) (string, error
 		return "", err
 	}
 	if !found {
-		return "", fmt.Errorf("unable to find string at '%+v'", fieldPath)
+		return "", fmt.Errorf("nestedString: unable to find string at '%+v'", fieldPath)
 	}
 	return str, nil
 }
@@ -70,7 +70,7 @@ func nestedInt64(obj map[string]interface{}, fieldPath []string) (int64, error) 
 		return 0, err
 	}
 	if !found {
-		return 0, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+		return 0, fmt.Errorf("nestedInt64: unable to find data at '%+v'", fieldPath)
 	}
 	return integer, nil
 }
@@ -82,7 +82,7 @@ func nestedFloat64(obj map[string]interface{}, fieldPath []string) (float64, err
 		return 0, err
 	}
 	if !found {
-		return 0, fmt.Errorf("unable to find data at '%+v'", fieldPath)
+		return 0, fmt.Errorf("nestedFloat64: unable to find data at '%+v'", fieldPath)
 	}
 	return number, nil
 }
