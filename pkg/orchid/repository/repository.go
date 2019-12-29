@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -282,7 +284,54 @@ func (r *Repository) Bootstrap() error {
 	if err = s.Generate(&openAPIV3Schema); err != nil {
 		return err
 	}
-	return o.CreateTables(s)
+	err = o.CreateTables(s)
+	if err != nil {
+		return err
+	}
+
+	crd := convertToCRD(openAPIV3Schema)
+
+	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(crd)
+	if err != nil {
+		return err
+	}
+	err = r.Create(&unstructured.Unstructured{Object: uObj})
+
+	return err
+}
+
+func convertToCRD(openAPIV3Schema extv1.JSONSchemaProps) *extv1.CustomResourceDefinition {
+	crd := &extv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "customresourcedefinitions.apiextensions.k8s.io",
+			Namespace: DefaultNamespace,
+		},
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "apiextensions.k8s.io",
+			Names: extv1.CustomResourceDefinitionNames{
+				Plural:     "customresourcedefinitions",
+				Singular:   "customresourcedefinition",
+				ShortNames: []string{"crd", "crds"},
+				Kind:       "CustomResourceDefinition",
+				ListKind:   "CustomResourceDefinitionKind",
+				Categories: nil,
+			},
+			Scope: "Namespaced",
+			Versions: []extv1.CustomResourceDefinitionVersion{
+				{
+					Name: "v1",
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &openAPIV3Schema,
+					},
+				},
+			},
+		},
+	}
+	return crd
 }
 
 // NewRepository instantiate repository.
