@@ -11,7 +11,7 @@ import (
 )
 
 func TestExtract_extractPath(t *testing.T) {
-	cr, err := mocks.UnstructuredCRMock()
+	cr, err := mocks.UnstructuredCRMock("ns", "name")
 	require.NoError(t, err)
 
 	fieldPath := []string{"spec", "simple"}
@@ -22,7 +22,7 @@ func TestExtract_extractPath(t *testing.T) {
 }
 
 func TestExtract_extractCRDOpenAPIV3Schema(t *testing.T) {
-	crd, err := mocks.UnstructuredCRDMock()
+	crd, err := mocks.UnstructuredCRDMock("ns", "name")
 	require.NoError(t, err)
 
 	openAPIV3Schema, err := ExtractCRDOpenAPIV3Schema(crd.Object)
@@ -31,7 +31,7 @@ func TestExtract_extractCRDOpenAPIV3Schema(t *testing.T) {
 }
 
 func TestExtract_extractCRGVKFromCRD(t *testing.T) {
-	cr, err := mocks.UnstructuredCRDMock()
+	cr, err := mocks.UnstructuredCRDMock("ns", "name")
 	require.NoError(t, err)
 
 	gvk, err := ExtractCRGVKFromCRD(cr.Object)

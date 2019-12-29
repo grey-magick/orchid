@@ -96,8 +96,8 @@ func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, 
 	o := r.ormFactory(ns, group)
 	s := r.schemaFactory(r.schemaNameforGVK(gvk))
 
-	// checking when database connection is not yet instantiated to check if schemas has tables
-	// defined, and therefore create them, after this steps the database connection will be
+	// checking when database connection is not yet instantiated to verify if schemas has tables
+	// defined, and therefore create them. After those steps the database connection will be
 	// instantiated and thus won't be subject to connect or create-tables again
 	if o.DB == nil {
 		logger.Info("Bootstraping database connection...")

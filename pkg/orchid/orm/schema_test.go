@@ -88,7 +88,7 @@ func TestSchema_ObjectMeta(t *testing.T) {
 	assertJsonSchemaVsORMSchema(t, schema, table, jsonSchema.Properties)
 }
 
-// TestSchema_Orchid will generate the schema that Orchid will be using to store its own data.
+// TestSchema_CRD will generate the schema that Orchid will be using to store its own data.
 func TestSchema_CRD(t *testing.T) {
 	logger := klogr.New().WithName("test")
 
