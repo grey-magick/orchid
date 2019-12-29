@@ -100,9 +100,12 @@ func UnstructuredCRMock(ns, name string) (*unstructured.Unstructured, error) {
 	u.SetNamespace(ns)
 	u.SetName(name)
 
-	u.SetGroupVersionKind(schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"})
-	u.SetKind("CustomResourceDefinition")
-	u.SetAPIVersion("apiextensions.k8s.io/v1")
+	// u should be a resource of user defined group tests.example.com
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "tests.example.com",
+		Version: "v1",
+		Kind:    "Complex"},
+	)
 	u.SetAnnotations(map[string]string{"annotation": "annotation"})
 	u.SetClusterName("cluster-name")
 	u.SetGenerateName("generated-name")
@@ -266,7 +269,7 @@ func CRDMock(ns, name string) *extv1.CustomResourceDefinition {
 			Name:      name,
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: "apiextensions.k8s.io",
+			Group: "tests.example.com",
 			Versions: []extv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1",
@@ -280,11 +283,11 @@ func CRDMock(ns, name string) *extv1.CustomResourceDefinition {
 				},
 			},
 			Names: extv1.CustomResourceDefinitionNames{
-				Kind:       "CustomResourceDefinition",
-				ListKind:   "CustomResourceDefinitionList",
-				Singular:   "customresourcedefinition",
-				Plural:     "customresourcedefinitions",
-				ShortNames: []string{"crd", "crds"},
+				Kind:       "Complex",
+				ListKind:   "ComplexList",
+				Singular:   "complex",
+				Plural:     "complexi",
+				ShortNames: []string{"cp", "cpi"},
 			},
 			Scope: "Namespaced",
 		},
