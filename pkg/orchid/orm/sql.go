@@ -85,10 +85,23 @@ func SelectStatement(schema *Schema, where []string) string {
 	}
 	return fmt.Sprintf(
 		"select %s from %s where %s",
-		strings.Join(statementColumns, ", "),
-		strings.Join(statementFrom, ", "),
-		strings.Join(statementWhere, " and "),
+		strings.Join(distinct(statementColumns), ", "),
+		strings.Join(distinct(statementFrom), ", "),
+		strings.Join(distinct(statementWhere), " and "),
 	)
+}
+
+// distinct returns a set of distinct string values.
+func distinct(in []string) []string {
+	var out []string
+	seen := map[string]interface{}{}
+	for _, v := range in {
+		if _, exists := seen[v]; !exists {
+			out = append(out, v)
+			seen[v] = nil
+		}
+	}
+	return out
 }
 
 // CreateTablesStatement return the statements needed to create table and add foreign keys.
