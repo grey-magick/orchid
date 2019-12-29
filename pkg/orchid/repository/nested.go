@@ -39,7 +39,7 @@ func (n *Nested) nestedExtract(
 		if n.schema.HasOneToMany(startingAt) && !n.schema.IsKV(startingAt) {
 			slice, err := nestedSlice(obj, fieldPath)
 			if err != nil {
-				return err
+				slice = []interface{}{}
 			}
 
 			for _, sliceItem := range slice {
@@ -62,7 +62,7 @@ func (n *Nested) nestedExtract(
 		// dealing with the left-over objects
 		item, err := nestedMap(obj, startingAt)
 		if err != nil {
-			return err
+			continue
 		}
 		n.lines = append(n.lines, item)
 	}
