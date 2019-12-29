@@ -37,7 +37,7 @@ func TestRepository_decompose(t *testing.T) {
 	err := s.Generate(&openAPIV3Schema)
 	require.NoError(t, err)
 
-	u, err := mocks.UnstructuredCRDMock()
+	u, err := mocks.UnstructuredCRDMock("ns", "name")
 	require.NoError(t, err)
 
 	matrix, err := repo.decompose(s, u)
@@ -80,34 +80,23 @@ func TestRepository_decompose(t *testing.T) {
 
 func TestRepository_New(t *testing.T) {
 	_, repo := buildTestRepository(t)
-
-	t.Run("Bootstrap", func(t *testing.T) {
-		err := repo.Bootstrap()
-		require.NoError(t, err)
-	})
+	err := repo.Bootstrap()
+	require.NoError(t, err)
 
 	t.Run("Create-CRD", func(t *testing.T) {
-		crd, err := mocks.UnstructuredCRDMock()
+		crd, err := mocks.UnstructuredCRDMock(DefaultNamespace, mocks.RandomString(8))
 		require.NoError(t, err)
 
+		t.Logf("CRD name: '%s'", crd.GetName())
 		err = repo.Create(crd)
 		require.NoError(t, err)
 	})
 
-	cr, err := mocks.UnstructuredCRMock()
+	cr, err := mocks.UnstructuredCRMock(DefaultNamespace, mocks.RandomString(12))
 	t.Logf("cr='%#v'", cr)
 	require.NoError(t, err)
 
 	gvk := cr.GetObjectKind().GroupVersionKind()
-
-	o, s, err := repo.factory(DefaultNamespace, gvk)
-	require.NoError(t, err)
-
-	table, err := s.GetTable(s.Name)
-	require.NoError(t, err)
-	// cleaning up before other tests
-	_, err = o.DB.Exec(fmt.Sprintf("truncate table %s cascade", table.Name))
-	require.NoError(t, err)
 
 	t.Run("Create-CR", func(t *testing.T) {
 		err = repo.Create(cr)
@@ -132,11 +121,12 @@ func TestRepository_New(t *testing.T) {
 	})
 
 	t.Run("List-CR", func(t *testing.T) {
+		cr, _ = mocks.UnstructuredCRMock(DefaultNamespace, mocks.RandomString(12))
 		err = repo.Create(cr)
 		require.NoError(t, err)
 
 		options := metav1.ListOptions{LabelSelector: "label=label"}
-		list, err := repo.List("orchid", gvk, options)
+		list, err := repo.List(DefaultNamespace, gvk, options)
 		require.NoError(t, err)
 
 		t.Logf("List size '%d'", len(list.Items))
@@ -144,6 +134,18 @@ func TestRepository_New(t *testing.T) {
 			t.Logf("item='%#v'", item.Object)
 		}
 
-		assert.Len(t, list.Items, 2)
+		assert.True(t, len(list.Items) >= 2)
+
+		// cleaning up on threshold
+		if len(list.Items) > 6 {
+			o, s, err := repo.factory(DefaultNamespace, gvk)
+			require.NoError(t, err)
+
+			table, err := s.GetTable(s.Name)
+			require.NoError(t, err)
+
+			_, err = o.DB.Exec(fmt.Sprintf("truncate table %s cascade", table.Name))
+			require.NoError(t, err)
+		}
 	})
 }
