@@ -4,7 +4,8 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-func OrchidOpenAPIV3Schema() extv1.JSONSchemaProps {
+// ExtV1CRDOpenAPIV3Schema defines the schema for
+func ExtV1CRDOpenAPIV3Schema() extv1.JSONSchemaProps {
 	properties := map[string]extv1.JSONSchemaProps{
 		"apiVersion": StringProp,
 		"kind":       StringProp,
@@ -27,9 +28,10 @@ func OrchidOpenAPIV3Schema() extv1.JSONSchemaProps {
 		},
 	}
 	return extv1.JSONSchemaProps{
-		Type:              Object,
-		Properties:        properties,
-		Required:          []string{"apiVersion", "kind"},
+		Type:       Object,
+		Properties: properties,
+		Required:   []string{"apiVersion", "kind"},
+		// trigger saving the raw payload as a special column
 		XEmbeddedResource: true,
 	}
 }

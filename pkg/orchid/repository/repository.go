@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -45,6 +44,13 @@ var CRDGVK = schema.GroupVersionKind{
 	Kind:    "CustomResourceDefinition",
 }
 
+// NSGVK core-v1 Namespace GVK
+var NSGVK = schema.GroupVersionKind{
+	Group:   "",
+	Version: "v1",
+	Kind:    "Namespace",
+}
+
 // ormFactory creates a single ORM bootstrapped instance per namespace GVK.Group combination.
 func (r *Repository) ormFactory(ns string, group string) *orm.ORM {
 	if _, exists := r.orms[ns]; !exists {
@@ -75,18 +81,24 @@ func (r *Repository) schemaNameforGVK(gvk schema.GroupVersionKind) string {
 // factory instantiate the schema and ORM instances, making sure a single instance is in use for
 // the combination of namespace and GVK.
 func (r *Repository) factory(ns string, gvk schema.GroupVersionKind) (*orm.ORM, *orm.Schema, error) {
-	if gvk.Group == "" || gvk.Version == "" || gvk.Kind == "" {
+	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
+
+	// validating informed GVK
+	if gvk.Version == "" || gvk.Kind == "" {
 		return nil, nil, fmt.Errorf("incomplete GVK '%#v'", gvk)
+	}
+	if gvk.Group == "" {
+		logger.Info("Assuming 'core' since GVK's group is empty")
+		gvk.Group = "core"
 	}
 
 	group := strings.ReplaceAll(gvk.Group, ".", "_")
 	o := r.ormFactory(ns, group)
 	s := r.schemaFactory(r.schemaNameforGVK(gvk))
 
-	// checking when database connection is not yet instantiated to check if schemas has tables
-	// defined, and therefore create them, after this steps the database connection will be
+	// checking when database connection is not yet instantiated to verify if schemas has tables
+	// defined, and therefore create them. After those steps the database connection will be
 	// instantiated and thus won't be subject to connect or create-tables again
-	logger := r.logger.WithValues("namespace", ns, "GVK", gvk)
 	if o.DB == nil {
 		logger.Info("Bootstrapping database connection...")
 		if err := o.Bootstrap(); err != nil {
@@ -220,7 +232,7 @@ func (r *Repository) Read(
 	if err != nil {
 		return nil, err
 	}
-	if len(objects) > 1 {
+	if len(objects) != 1 {
 		r.logger.WithValues("objects", len(objects)).Info("WARNING: unexpected number of objects!")
 	}
 
@@ -264,74 +276,32 @@ func (r *Repository) List(
 	return list, nil
 }
 
-// Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
-// has tables created. It can return error on creating CRD tables.
-func (r *Repository) Bootstrap() error {
-	// TODO: bootstrap existing schemas, check created CRDs and instantiate orm and schemas;
-
-	o, s, err := r.factory(DefaultNamespace, CRDGVK)
-	if err != nil {
+// bootstrapGVK instantiate orm.Schema and later calling out for factory, in order to have schemas
+// pre-instantiated, and later on tables created on orchid's namespace (default namespace). It can
+// return errors on generating schema, and on calling out factory.
+func (r *Repository) bootstrapGVK(
+	gvk schema.GroupVersionKind,
+	openAPIV3Schema *extv1.JSONSchemaProps,
+) error {
+	s := r.schemaFactory(r.schemaNameforGVK(gvk))
+	if err := s.Generate(openAPIV3Schema); err != nil {
 		return err
 	}
-
-	// preparing database structure, before being able to store and retrieve data
-	if err = o.Bootstrap(); err != nil {
-		return err
-	}
-
-	// generating schema for CRD and creating tables
-	openAPIV3Schema := jsc.OrchidOpenAPIV3Schema()
-	if err = s.Generate(&openAPIV3Schema); err != nil {
-		return err
-	}
-	err = o.CreateTables(s)
-	if err != nil {
-		return err
-	}
-
-	crd := convertToCRD(openAPIV3Schema)
-
-	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(crd)
-	if err != nil {
-		return err
-	}
-	err = r.Create(&unstructured.Unstructured{Object: uObj})
-
+	_, _, err := r.factory(DefaultNamespace, gvk)
 	return err
 }
 
-func convertToCRD(openAPIV3Schema extv1.JSONSchemaProps) *extv1.CustomResourceDefinition {
-	crd := &extv1.CustomResourceDefinition{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CustomResourceDefinition",
-			APIVersion: "apiextensions.k8s.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "customresourcedefinitions.apiextensions.k8s.io",
-			Namespace: DefaultNamespace,
-		},
-		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: "apiextensions.k8s.io",
-			Names: extv1.CustomResourceDefinitionNames{
-				Plural:     "customresourcedefinitions",
-				Singular:   "customresourcedefinition",
-				ShortNames: []string{"crd", "crds"},
-				Kind:       "CustomResourceDefinition",
-				ListKind:   "CustomResourceDefinitionKind",
-				Categories: nil,
-			},
-			Scope: "Namespaced",
-			Versions: []extv1.CustomResourceDefinitionVersion{
-				{
-					Name: "v1",
-					Schema: &extv1.CustomResourceValidation{
-						OpenAPIV3Schema: &openAPIV3Schema,
-					},
-				},
-			},
-		},
+// Bootstrap the repository instance by instantiating CRD schema, and making sure the CRD storage
+// has tables created. It can return error on creating CRD tables.
+func (r *Repository) Bootstrap() error {
+	// instantiating CRD storage
+	crdAPISchema := jsc.ExtV1CRDOpenAPIV3Schema()
+	if err := r.bootstrapGVK(CRDGVK, &crdAPISchema); err != nil {
+		return err
 	}
-	return crd
+	// instantiating core/v1 Namespace storage
+	nsAPISchema := jsc.CoreV1NamespaceOpenAPIV3Schema()
+	return r.bootstrapGVK(NSGVK, &nsAPISchema)
 }
 
 // NewRepository instantiate repository.

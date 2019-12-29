@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"encoding/json"
+	"math/rand"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -67,7 +68,7 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 			return nil, err
 		}
 		data := map[string]interface{}{}
-		err = json.Unmarshal(b, data)
+		err = json.Unmarshal(b, &data)
 		return &unstructured.Unstructured{Object: data}, err
 	} else {
 		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
@@ -78,7 +79,7 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	}
 }
 
-func UnstructuredCRMock() (*unstructured.Unstructured, error) {
+func UnstructuredCRMock(ns, name string) (*unstructured.Unstructured, error) {
 	now := metav1.NewTime(time.Now())
 	truePtr := true
 	u := &unstructured.Unstructured{}
@@ -95,10 +96,13 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 			},
 		},
 	})
+
+	u.SetNamespace(ns)
+	u.SetName(name)
+
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"})
 	u.SetKind("CustomResourceDefinition")
 	u.SetAPIVersion("apiextensions.k8s.io/v1")
-	u.SetName("testing")
 	u.SetAnnotations(map[string]string{"annotation": "annotation"})
 	u.SetClusterName("cluster-name")
 	u.SetGenerateName("generated-name")
@@ -118,7 +122,6 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 			Operation:  metav1.ManagedFieldsOperationUpdate,
 		},
 	})
-	u.SetNamespace("orchid")
 	u.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion:         "owner/v1",
@@ -213,12 +216,15 @@ func UnstructuredReplicaSetMock() (*unstructured.Unstructured, error) {
 	return toUnstructured(rs)
 }
 
-func UnstructuredCRDMock() (*unstructured.Unstructured, error) {
-	crd := CRDMock()
+func UnstructuredCRDMock(ns, name string) (*unstructured.Unstructured, error) {
+	crd := CRDMock(ns, name)
 	u, err := toUnstructured(crd)
 	if err != nil {
 		return nil, err
 	}
+
+	u.SetNamespace(ns)
+	u.SetName(name)
 
 	now := metav1.NewTime(time.Now())
 	u.SetManagedFields([]metav1.ManagedFieldsEntry{
@@ -248,7 +254,7 @@ func UnstructuredCRDMock() (*unstructured.Unstructured, error) {
 	return u, nil
 }
 
-func CRDMock() *extv1.CustomResourceDefinition {
+func CRDMock(ns, name string) *extv1.CustomResourceDefinition {
 	openAPIV3Schema := OpenAPIV3SchemaMock()
 	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
@@ -256,8 +262,8 @@ func CRDMock() *extv1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "orchid",
-			Name:      "customresourcedefinitions.apiextensions.k8s.io",
+			Namespace: ns,
+			Name:      name,
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
 			Group: "apiextensions.k8s.io",
@@ -284,4 +290,17 @@ func CRDMock() *extv1.CustomResourceDefinition {
 		},
 		Status: extv1.CustomResourceDefinitionStatus{},
 	}
+}
+
+// RandomString creates a random string on informed size
+func RandomString(length int) string {
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	letter := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	b := make([]rune, length)
+
+	for i := range b {
+		b[i] = letter[seededRand.Intn(len(letter))]
+	}
+	return string(b)
 }

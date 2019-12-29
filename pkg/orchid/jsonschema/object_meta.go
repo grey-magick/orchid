@@ -48,6 +48,8 @@ func objectMetaOwnerReferences() extv1.JSONSchemaProps {
 // MetaV1ObjectMetaOpenAPIV3Schema creates an ObjectMeta object based on metav1.
 func MetaV1ObjectMetaOpenAPIV3Schema() extv1.JSONSchemaProps {
 	properties := map[string]extv1.JSONSchemaProps{
+		"name":                       StringProp,
+		"namespace":                  StringProp,
 		"annotations":                objectMetaStringKV(),
 		"clusterName":                StringProp,
 		"creationTimestamp":          StringProp,
@@ -58,16 +60,17 @@ func MetaV1ObjectMetaOpenAPIV3Schema() extv1.JSONSchemaProps {
 		"generation":                 Int64Prop,
 		"labels":                     objectMetaStringKV(),
 		"managedFields":              objectMetaManagedFields(),
-		"name":                       StringProp,
-		"namespace":                  StringProp,
 		"ownerReferences":            objectMetaOwnerReferences(),
 		"resourceVersion":            StringProp,
 		"selfLink":                   StringProp,
 		"uid":                        StringProp,
 	}
+	keys := []string{"namespace", "name"}
 	return extv1.JSONSchemaProps{
 		Type:       Object,
 		Properties: properties,
-		Required:   []string{"namespace", "name"},
+		Required:   keys,
+		// trigger using keys as unique columns in table
+		XListMapKeys: keys,
 	}
 }
