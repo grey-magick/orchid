@@ -83,6 +83,18 @@ func TestRepository_New(t *testing.T) {
 	err := repo.Bootstrap()
 	require.NoError(t, err)
 
+	// List-CRD is expected to find one CRD, customresourcedefinitions.apiextensions.k8s.io after
+	// bootstrap in DefaultNamespace; this is the contract responsible for announcing to clients new
+	// resources can be created.
+	t.Run("List-CRD", func(t *testing.T) {
+		// FIXME: this test is exposing the following error: no data found for table named
+		//        'v1_customresourcedefinition'; it is likely some review is required around which
+		//        connection to use when accessing a given resource.
+		uList, err := repo.List(DefaultNamespace, CRDGVK, metav1.ListOptions{})
+		require.NoError(t, err)
+		require.Len(t, uList.Items, 1)
+	})
+
 	t.Run("Create-CRD", func(t *testing.T) {
 		crd, err := mocks.UnstructuredCRDMock(DefaultNamespace, mocks.RandomString(8))
 		require.NoError(t, err)
