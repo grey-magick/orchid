@@ -95,9 +95,9 @@ func UnstructuredCRMock() (*unstructured.Unstructured, error) {
 			},
 		},
 	})
-	u.SetGroupVersionKind(schema.GroupVersionKind{Group: "mock", Version: "v1", Kind: "Custom"})
-	u.SetKind("Custom")
-	u.SetAPIVersion("mock/v1")
+	u.SetGroupVersionKind(schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"})
+	u.SetKind("CustomResourceDefinition")
+	u.SetAPIVersion("apiextensions.k8s.io/v1")
 	u.SetName("testing")
 	u.SetAnnotations(map[string]string{"annotation": "annotation"})
 	u.SetClusterName("cluster-name")
@@ -257,10 +257,10 @@ func CRDMock() *extv1.CustomResourceDefinition {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "orchid",
-			Name:      "MockedCRD",
+			Name:      "customresourcedefinitions.apiextensions.k8s.io",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: "mock",
+			Group: "apiextensions.k8s.io",
 			Versions: []extv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1",
@@ -274,11 +274,11 @@ func CRDMock() *extv1.CustomResourceDefinition {
 				},
 			},
 			Names: extv1.CustomResourceDefinitionNames{
-				Kind:       "Custom",
-				ListKind:   "CustomList",
-				Singular:   "custom",
-				Plural:     "customs",
-				ShortNames: []string{"cst", "csts"},
+				Kind:       "CustomResourceDefinition",
+				ListKind:   "CustomResourceDefinitionList",
+				Singular:   "customresourcedefinition",
+				Plural:     "customresourcedefinitions",
+				ShortNames: []string{"crd", "crds"},
 			},
 			Scope: "Namespaced",
 		},

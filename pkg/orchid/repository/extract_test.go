@@ -38,7 +38,7 @@ func TestExtract_extractCRGVKFromCRD(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, gvk)
 
-	assert.Equal(t, "mock", gvk.Group)
+	assert.Equal(t, "apiextensions.k8s.io", gvk.Group)
 	assert.Equal(t, "v1", gvk.Version)
-	assert.Equal(t, "Custom", gvk.Kind)
+	assert.Equal(t, "CustomResourceDefinition", gvk.Kind)
 }
