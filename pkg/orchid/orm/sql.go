@@ -51,67 +51,62 @@ func InsertStatement(schema *Schema) []string {
 	return inserts
 }
 
+// hintedColumns returns a slice of column names using table hint. Does not include foreign-keys.
+func hintedColumns(table *Table) []string {
+	columnNames := []string{PKColumnName}
+	columnNames = append(columnNames, table.ColumNames()...)
+	columns := []string{}
+	for _, column := range columnNames {
+		columns = append(columns,
+			fmt.Sprintf("%s.\"%s\" as \"%s.%s\"", table.Hint, column, table.Hint, column))
+	}
+	return columns
+}
+
+// leftJoin creates a left-join clause using different approaches depending on the one-to-many table
+// flag, when one-to-many the current table is included as the main left join table, when one-to-one
+// the related table is the primary table
+func leftJoin(schema *Schema, table *Table, constraint *Constraint, related *Table) string {
+	if schema.HasOneToMany(table.Path) {
+		return fmt.Sprintf(
+			"left join %s %s on %s.%s=%s.%s",
+			table.Name, table.Hint,
+			table.Hint, constraint.ColumnName,
+			related.Hint, constraint.RelatedColumnName,
+		)
+	}
+	return fmt.Sprintf(
+		"left join %s %s on %s.%s=%s.%s",
+		related.Name, related.Hint,
+		table.Hint, constraint.ColumnName,
+		related.Hint, constraint.RelatedColumnName,
+	)
+}
+
 // SelectStatement generates a select statement based on schema, using the primary schema table
 // as from, and other tables as left-join entries. It can return error when tables are not found.
 func SelectStatement(schema *Schema, where []string) (string, error) {
-	// preparing statement "from" clause based on main schema table
 	mainTable, err := schema.GetTable(schema.Name)
 	if err != nil {
 		return "", err
 	}
+	// preparing statement "from" clause based on main schema table
 	from := []string{fmt.Sprintf("%s %s", mainTable.Name, mainTable.Hint)}
 
-	leftJoin := []string{}
+	leftJoins := []string{}
 	columns := []string{}
 	for _, table := range schema.Tables {
-		// preparing columns by picking all columns except foreign-keys
-		columnNames := []string{PKColumnName}
-		columnNames = append(columnNames, table.ColumNames()...)
-		for _, column := range columnNames {
-			columns = append(columns,
-				fmt.Sprintf("%s.\"%s\" as \"%s.%s\"", table.Hint, column, table.Hint, column))
-		}
+		columns = append(columns, hintedColumns(table)...)
 
-		// using foreign-keys to determine left-join clause
 		for _, constraint := range table.Constraints {
 			if constraint.Type != PgConstraintFK {
 				continue
 			}
-			relatedTable, err := schema.GetTable(constraint.RelatedTableName)
+			related, err := schema.GetTable(constraint.RelatedTableName)
 			if err != nil {
 				return "", err
 			}
-
-			// different approaches depending on the one-to-many table flag, when one-to-many the
-			// current table is included as the main left join table, when one-to-one the related
-			// table is the primary table
-			if schema.HasOneToMany(table.Path) {
-				leftJoin = append(
-					leftJoin,
-					fmt.Sprintf(
-						"left join %s %s on %s.%s=%s.%s",
-						table.Name,
-						table.Hint,
-						table.Hint,
-						constraint.ColumnName,
-						relatedTable.Hint,
-						constraint.RelatedColumnName,
-					),
-				)
-			} else {
-				leftJoin = append(
-					leftJoin,
-					fmt.Sprintf(
-						"left join %s %s on %s.%s=%s.%s",
-						relatedTable.Name,
-						relatedTable.Hint,
-						table.Hint,
-						constraint.ColumnName,
-						relatedTable.Hint,
-						constraint.RelatedColumnName,
-					),
-				)
-			}
+			leftJoins = append(leftJoins, leftJoin(schema, table, constraint, related))
 		}
 	}
 
@@ -120,8 +115,8 @@ func SelectStatement(schema *Schema, where []string) (string, error) {
 		strings.Join(columns, ", "),
 		strings.Join(from, ", "),
 	)
-	if len(leftJoin) > 0 {
-		statement = fmt.Sprintf("%s %s", statement, strings.Join(leftJoin, " "))
+	if len(leftJoins) > 0 {
+		statement = fmt.Sprintf("%s %s", statement, strings.Join(leftJoins, " "))
 	}
 	if len(where) > 0 {
 		statement = fmt.Sprintf("%s where %s", statement, strings.Join(where, " and "))
