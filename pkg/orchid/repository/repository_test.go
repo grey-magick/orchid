@@ -83,6 +83,15 @@ func TestRepository_New(t *testing.T) {
 	err := repo.Bootstrap()
 	require.NoError(t, err)
 
+	t.Run("Create-CRD", func(t *testing.T) {
+		crd, err := mocks.UnstructuredCRDMock(DefaultNamespace, mocks.RandomString(8))
+		require.NoError(t, err)
+
+		t.Logf("CRD name: '%s'", crd.GetName())
+		err = repo.Create(crd)
+		require.NoError(t, err)
+	})
+
 	// List-CRD is expected to find one CRD, customresourcedefinitions.apiextensions.k8s.io after
 	// bootstrap in DefaultNamespace; this is the contract responsible for announcing to clients new
 	// resources can be created.
@@ -93,15 +102,6 @@ func TestRepository_New(t *testing.T) {
 		uList, err := repo.List(DefaultNamespace, CRDGVK, metav1.ListOptions{})
 		require.NoError(t, err)
 		require.Len(t, uList.Items, 1)
-	})
-
-	t.Run("Create-CRD", func(t *testing.T) {
-		crd, err := mocks.UnstructuredCRDMock(DefaultNamespace, mocks.RandomString(8))
-		require.NoError(t, err)
-
-		t.Logf("CRD name: '%s'", crd.GetName())
-		err = repo.Create(crd)
-		require.NoError(t, err)
 	})
 
 	cr, err := mocks.UnstructuredCRMock(DefaultNamespace, mocks.RandomString(12))
