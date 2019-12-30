@@ -124,19 +124,6 @@ func SelectStatement(schema *Schema, where []string) (string, error) {
 	return statement, nil
 }
 
-// distinct returns a set of distinct string values.
-func distinct(in []string) []string {
-	var out []string
-	seen := map[string]interface{}{}
-	for _, v := range in {
-		if _, exists := seen[v]; !exists {
-			out = append(out, v)
-			seen[v] = nil
-		}
-	}
-	return out
-}
-
 // CreateTablesStatement return the statements needed to create table and add foreign keys.
 func CreateTablesStatement(schema *Schema) []string {
 	createTables := []string{}
