@@ -182,7 +182,10 @@ func (o *ORM) scanRows(schema *Schema, rows *sql.Rows) (*ResultSet, error) {
 // dbSelect execute a select against the schema tables using where clause and arguments informed.
 // It can return errors on executing the query and building the result-set.
 func (o *ORM) dbSelect(schema *Schema, where []string, arguments []interface{}) (*ResultSet, error) {
-	statement := SelectStatement(schema, where)
+	statement, err := SelectStatement(schema, where)
+	if err != nil {
+		return nil, err
+	}
 	o.logger.WithValues("statement", statement, "where", where, "arguments", arguments).
 		Info("Executing select statement")
 	rows, err := o.DB.Query(statement, arguments...)

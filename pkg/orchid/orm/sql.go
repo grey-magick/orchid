@@ -51,44 +51,82 @@ func InsertStatement(schema *Schema) []string {
 	return inserts
 }
 
-// SelectStatement generates a select statement for the schema, using where clause informed. Where
-func SelectStatement(schema *Schema, where []string) string {
-	statementColumns := []string{}
-	statementFrom := []string{}
-	statementWhere := []string{"1=1"}
+// SelectStatement generates a select statement based on schema, using the primary schema table
+// as from, and other tables as left-join entries. It can return error when tables are not found.
+func SelectStatement(schema *Schema, where []string) (string, error) {
+	// preparing statement "from" clause based on main schema table
+	mainTable, err := schema.GetTable(schema.Name)
+	if err != nil {
+		return "", err
+	}
+	from := []string{fmt.Sprintf("%s %s", mainTable.Name, mainTable.Hint)}
 
-	for _, table := range schema.TablesReversed() {
-		columns := []string{PKColumnName}
-		columns = append(columns, table.ColumNames()...)
-
-		for _, column := range columns {
-			statementColumns = append(statementColumns,
+	leftJoin := []string{}
+	columns := []string{}
+	for _, table := range schema.Tables {
+		// preparing columns by picking all columns except foreign-keys
+		columnNames := []string{PKColumnName}
+		columnNames = append(columnNames, table.ColumNames()...)
+		for _, column := range columnNames {
+			columns = append(columns,
 				fmt.Sprintf("%s.\"%s\" as \"%s.%s\"", table.Hint, column, table.Hint, column))
 		}
 
+		// using foreign-keys to determine left-join clause
 		for _, constraint := range table.Constraints {
 			if constraint.Type != PgConstraintFK {
 				continue
 			}
-			statementWhere = append(statementWhere, fmt.Sprintf("%s.\"%s\"=%s.\"%s\"",
-				schema.GetHint(constraint.RelatedTableName),
-				constraint.RelatedColumnName,
-				table.Hint,
-				constraint.ColumnName,
-			))
-		}
+			relatedTable, err := schema.GetTable(constraint.RelatedTableName)
+			if err != nil {
+				return "", err
+			}
 
-		statementFrom = append(statementFrom, fmt.Sprintf("%s %s", table.Name, table.Hint))
+			// different approaches depending on the one-to-many table flag, when one-to-many the
+			// current table is included as the main left join table, when one-to-one the related
+			// table is the primary table
+			if schema.HasOneToMany(table.Path) {
+				leftJoin = append(
+					leftJoin,
+					fmt.Sprintf(
+						"left join %s %s on %s.%s=%s.%s",
+						table.Name,
+						table.Hint,
+						table.Hint,
+						constraint.ColumnName,
+						relatedTable.Hint,
+						constraint.RelatedColumnName,
+					),
+				)
+			} else {
+				leftJoin = append(
+					leftJoin,
+					fmt.Sprintf(
+						"left join %s %s on %s.%s=%s.%s",
+						relatedTable.Name,
+						relatedTable.Hint,
+						table.Hint,
+						constraint.ColumnName,
+						relatedTable.Hint,
+						constraint.RelatedColumnName,
+					),
+				)
+			}
+		}
 	}
-	for i, clause := range where {
-		statementWhere = append(statementWhere, fmt.Sprintf("%s=$%d", clause, i+1))
-	}
-	return fmt.Sprintf(
-		"select %s from %s where %s",
-		strings.Join(distinct(statementColumns), ", "),
-		strings.Join(distinct(statementFrom), ", "),
-		strings.Join(distinct(statementWhere), " and "),
+
+	statement := fmt.Sprintf(
+		"select %s from %s",
+		strings.Join(columns, ", "),
+		strings.Join(from, ", "),
 	)
+	if len(leftJoin) > 0 {
+		statement = fmt.Sprintf("%s %s", statement, strings.Join(leftJoin, " "))
+	}
+	if len(where) > 0 {
+		statement = fmt.Sprintf("%s where %s", statement, strings.Join(where, " and "))
+	}
+	return statement, nil
 }
 
 // distinct returns a set of distinct string values.
