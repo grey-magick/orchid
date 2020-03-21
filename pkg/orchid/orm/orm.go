@@ -20,16 +20,26 @@ type ORM struct {
 	DB         *sql.DB        // database adapter instance
 }
 
-// driverName database driver
-const driverName = "postgres"
-
+// List slice of interface.
 type List []interface{}
+
+// MappedList string keyed map of Lists.
 type MappedList map[string]List
+
+// MappedMatrix string keyed map of slice of Lists.
 type MappedMatrix map[string][]List
 
+// Entry string keyed map of interface.
 type Entry map[string]interface{}
+
+// EntryMap string keyed map of Entries.
 type EntryMap map[string]Entry
+
+// MappedEntries string keyed map of Entry slice.
 type MappedEntries map[string][]Entry
+
+// driverName database driver
+const driverName = "postgres"
 
 // createDatabase create an PostgreSQL database.
 func (o *ORM) createDatabase() error {

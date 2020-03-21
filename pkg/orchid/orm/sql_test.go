@@ -46,7 +46,9 @@ func TestSQL(t *testing.T) {
 	})
 
 	t.Run("Select", func(t *testing.T) {
-		selectStmt := SelectStatement(schema, nil)
+		selectStmt, err := SelectStatement(schema, nil)
 		t.Logf("select='%s'", selectStmt)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, selectStmt)
 	})
 }
