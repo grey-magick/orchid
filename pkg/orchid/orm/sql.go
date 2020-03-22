@@ -3,6 +3,8 @@ package orm
 import (
 	"fmt"
 	"strings"
+
+	sqlfmt "github.com/otaviof/go-sqlfmt/pkg/sqlfmt"
 )
 
 // CreateDatabaseStatement returns create database statement with informed database.
@@ -102,11 +104,21 @@ func SelectStatement(schema *Schema, where []string) (string, error) {
 			if constraint.Type != PgConstraintFK {
 				continue
 			}
+
 			related, err := schema.GetTable(constraint.RelatedTableName)
 			if err != nil {
 				return "", err
 			}
-			leftJoins = append(leftJoins, leftJoin(schema, table, constraint, related))
+
+			// in order to keep the correct sql statement sequence, when dealing with a table having
+			// one-to-many relationships, moving the statement to the end of left-joins group, while
+			// when not having one-to-many, it will be prepended
+			leftJoinStmt := leftJoin(schema, table, constraint, related)
+			if schema.HasOneToMany(table.Path) {
+				leftJoins = append(leftJoins, leftJoinStmt)
+			} else {
+				leftJoins = StringSlicePrepend(leftJoins, leftJoinStmt)
+			}
 		}
 	}
 
@@ -122,6 +134,12 @@ func SelectStatement(schema *Schema, where []string) (string, error) {
 		statement = fmt.Sprintf("%s where %s", statement, strings.Join(where, " and "))
 	}
 	return statement, nil
+}
+
+func FormatStatement(statement string) string {
+	opts := &sqlfmt.Options{Distance: 0}
+	formatted, _ := sqlfmt.Format(statement, opts)
+	return formatted
 }
 
 // CreateTablesStatement return the statements needed to create table and add foreign keys.

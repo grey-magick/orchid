@@ -96,9 +96,6 @@ func TestRepository_New(t *testing.T) {
 	// bootstrap in DefaultNamespace; this is the contract responsible for announcing to clients new
 	// resources can be created.
 	t.Run("List-CRD", func(t *testing.T) {
-		// FIXME: this test is exposing the following error: no data found for table named
-		//        'v1_customresourcedefinition'; it is likely some review is required around which
-		//        connection to use when accessing a given resource.
 		uList, err := repo.List(DefaultNamespace, CRDGVK, metav1.ListOptions{})
 		require.NoError(t, err)
 		require.Len(t, uList.Items, 1)

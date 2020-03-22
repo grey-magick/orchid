@@ -196,8 +196,10 @@ func (o *ORM) dbSelect(schema *Schema, where []string, arguments []interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	o.logger.WithValues("statement", statement, "where", where, "arguments", arguments).
-		Info("Executing select statement")
+
+	o.logger.WithValues("where", where, "arguments", arguments).Info("Executing select statement...")
+	fmt.Printf("---\nSET search_path='%s';%s;\n---\n\n", o.searchPath, FormatStatement(statement))
+
 	rows, err := o.DB.Query(statement, arguments...)
 	if err != nil {
 		return nil, err
@@ -267,8 +269,8 @@ func (o *ORM) Read(schema *Schema, namespacedName types.NamespacedName) (*Result
 		return nil, err
 	}
 	where := []string{
-		fmt.Sprintf("%s.namespace", metadataTable.Hint),
-		fmt.Sprintf("%s.name", metadataTable.Hint),
+		fmt.Sprintf("%s.namespace=$1", metadataTable.Hint),
+		fmt.Sprintf("%s.name=$2", metadataTable.Hint),
 	}
 	arguments := []interface{}{namespacedName.Namespace, namespacedName.Name}
 	return o.dbSelect(schema, where, arguments)
@@ -285,8 +287,8 @@ func (o *ORM) List(schema *Schema, labelsSet map[string]string) (*ResultSet, err
 			return nil, err
 		}
 		for label, value := range labelsSet {
-			where = append(where, fmt.Sprintf("%s.key", labelsTable.Hint))
-			where = append(where, fmt.Sprintf("%s.value", labelsTable.Hint))
+			where = append(where, fmt.Sprintf("%s.key=$1", labelsTable.Hint))
+			where = append(where, fmt.Sprintf("%s.value=$2", labelsTable.Hint))
 			arguments = append(arguments, label)
 			arguments = append(arguments, value)
 		}

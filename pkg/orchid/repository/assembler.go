@@ -128,21 +128,26 @@ func (a *Assembler) amend(
 			return nil, fmt.Errorf("column '%s' not found on entry '%#v'", column.Name, entry)
 		}
 
-		if column.JSType == jsc.Array {
+		switch column.JSType {
+		case jsc.Array:
+			array := []interface{}{}
 			byteSlice, ok := value.([]byte)
 			if !ok {
-				return nil, fmt.Errorf("unable to scan '%#v' into a byte slice", entry[column.Name])
-			}
+				amended[column.Name] = array
+			} else {
+				trimmed := strings.TrimPrefix(string(byteSlice), "{")
+				trimmed = strings.TrimSuffix(trimmed, "}")
 
-			trimmed := strings.TrimPrefix(string(byteSlice), "{")
-			trimmed = strings.TrimSuffix(trimmed, "}")
-
-			array := []interface{}{}
-			for _, item := range strings.Split(trimmed, ",") {
-				array = append(array, item)
+				for _, item := range strings.Split(trimmed, ",") {
+					array = append(array, item)
+				}
+				amended[column.Name] = array
 			}
-			amended[column.Name] = array
-		} else {
+		// case jsc.Boolean:
+		// case jsc.String:
+		// case jsc.Integer:
+		// case jsc.Number:
+		default:
 			amended[column.Name] = value
 		}
 	}
@@ -172,6 +177,7 @@ func (a *Assembler) object(tableName string, pk interface{}) (map[string]interfa
 			}
 		}
 	}
+
 	// making sure additional columns are stripped out, and columns are handled properly
 	if entry, err = a.amend(table, entry); err != nil {
 		return nil, err

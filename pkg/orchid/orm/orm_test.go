@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 
 	"github.com/isutton/orchid/pkg/orchid/config"
@@ -37,10 +38,10 @@ func TestORM_New(t *testing.T) {
 	// 	require.NoError(t, err)
 	// })
 
-	// t.Run("Read", func(t *testing.T) {
-	// 	namespacedName := types.NamespacedName{Namespace: "namespace", Name: "testing"}
-	// 	data, err := orm.Read(schema, namespacedName)
-	// 	assert.NoError(t, err)
-	// 	t.Logf("data='%+v'", data)
-	// })
+	t.Run("Read", func(t *testing.T) {
+		namespacedName := types.NamespacedName{Namespace: "namespace", Name: "testing"}
+		data, err := pgORM.Read(schema, namespacedName)
+		assert.NoError(t, err)
+		t.Logf("data='%+v'", data)
+	})
 }

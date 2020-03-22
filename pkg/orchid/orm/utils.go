@@ -31,3 +31,10 @@ func InterfaceSliceReversed(slice []interface{}) []interface{} {
 	}
 	return reversed
 }
+
+func StringSlicePrepend(slice []string, entry string) []string {
+	slice = append(slice, entry)
+	copy(slice[1:], slice)
+	slice[0] = entry
+	return slice
+}
