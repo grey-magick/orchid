@@ -121,13 +121,13 @@ func (a *Assembler) amend(
 			continue
 		}
 
-		// TODO: check for empty values, for instance instead of nil, it should replace with an
-		// empty string. The same for the other types.
 		value, found := entry[column.Name]
 		if !found {
 			return nil, fmt.Errorf("column '%s' not found on entry '%#v'", column.Name, entry)
 		}
 
+		// converting values back to their original json type, when nil returning an empty data
+		// structure on the same type
 		switch column.JSType {
 		case jsc.Array:
 			array := []interface{}{}
@@ -143,10 +143,13 @@ func (a *Assembler) amend(
 				}
 				amended[column.Name] = array
 			}
-		// case jsc.Boolean:
-		// case jsc.String:
-		// case jsc.Integer:
-		// case jsc.Number:
+		case jsc.String:
+			valueStr, ok := value.(string)
+			if !ok {
+				amended[column.Name] = ""
+			} else {
+				amended[column.Name] = valueStr
+			}
 		default:
 			amended[column.Name] = value
 		}
