@@ -23,8 +23,9 @@ export CODECOV_TOKEN
 default: build
 
 # initialize Go modules vendor directory
+.PHONY: vendor
 vendor:
-	go mod vendor
+	@go mod vendor
 
 # clean up build directory
 clean:
@@ -34,9 +35,12 @@ clean:
 prepare:
 	@mkdir -p $(COVERAGE_DIR) > /dev/null 2>&1 || true
 
-# build application command-line
-build: prepare vendor
+.PHONY: $(OUTPUT_DIR)/$(APP)
+$(OUTPUT_DIR)/$(APP):
 	go build $(COMMON_FLAGS) -o="$(OUTPUT_DIR)/$(APP)" cmd/$(MODULE)/*
+
+# build application command-line
+build: prepare vendor $(OUTPUT_DIR)/$(APP)
 
 # execute "go run" against cmd
 run:
