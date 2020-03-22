@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 clusters:
 - cluster:
@@ -9,7 +10,7 @@ contexts:
     cluster: orchid
     user: ""
   name: orchid
-current-context: ""
+current-context: orchid
 kind: Config
 preferences: {}
-users: []
+users: null
